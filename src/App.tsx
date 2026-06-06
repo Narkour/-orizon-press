@@ -1,16 +1,25 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Layout from './components/Layout';
+import Home from './pages/Home';
+import Catalogue from './pages/Catalogue';
+import Authors from './pages/Authors';
+import AuthorDetail from './pages/AuthorDetail';
+import BookDetail from './pages/BookDetail';
+import About from './pages/About';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={
-          <div style={{fontFamily:'Georgia',padding:'2rem',textAlign:'center',background:'#faf7f2',minHeight:'100vh'}}>
-            <h1 style={{color:'#c9952a',fontSize:'3rem'}}>◈ Orizon Press</h1>
-            <p style={{color:'#8a8278',marginTop:'1rem'}}>Publishing works that reach beyond the horizon</p>
-          </div>
-        } />
+        <Route element={<Layout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/catalogue" element={<Catalogue />} />
+          <Route path="/authors" element={<Authors />} />
+          <Route path="/authors/:slug" element={<AuthorDetail />} />
+          <Route path="/books/:slug" element={<BookDetail />} />
+          <Route path="/about" element={<About />} />
+        </Route>
       </Routes>
     </BrowserRouter>
-  )
+  );
 }
