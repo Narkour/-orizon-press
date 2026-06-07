@@ -1,4 +1,5 @@
 import { useParams, Link, Navigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { getPenNameBySlug, getBooksByPenName } from '../data/catalogue'
 import BookCard from '../components/BookCard'
 
@@ -10,6 +11,14 @@ export default function AuthorDetail() {
 
   return (
     <div style={{ paddingBottom:'5rem' }}>
+      <Helmet>
+        <title>{author.name} | Orizon Press</title>
+        <meta name="description" content={author.shortBio} />
+        <meta property="og:title" content={`${author.name} | Orizon Press`} />
+        <meta property="og:description" content={author.shortBio} />
+        <meta property="og:type" content="profile" />
+        <meta property="og:url" content={`https://orizonpress.com/authors/${author.slug}`} />
+      </Helmet>
       <div style={{ background:'var(--parchment-mid)', padding:'3rem 0', borderBottom:'1px solid var(--border)' }}>
         <div className="container">
           <Link to="/authors" style={{ fontSize:'0.72rem', letterSpacing:'0.12em', textTransform:'uppercase', color:'var(--mist)', display:'inline-block', marginBottom:'2rem', transition:'color var(--duration)' }}

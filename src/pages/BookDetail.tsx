@@ -1,4 +1,5 @@
 import { useParams, Link, Navigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { getBookBySlug, getPenNameById, getBooksByPenName } from '../data/catalogue'
 import BookCard from '../components/BookCard'
 
@@ -12,6 +13,14 @@ export default function BookDetail() {
 
   return (
     <div style={{ padding:'2rem 0 5rem' }}>
+      <Helmet>
+        <title>{book.title} | Orizon Press</title>
+        <meta name="description" content={book.description} />
+        <meta property="og:title" content={`${book.title} | Orizon Press`} />
+        <meta property="og:description" content={book.description} />
+        <meta property="og:type" content="book" />
+        <meta property="og:url" content={`https://orizonpress.com/books/${book.slug}`} />
+      </Helmet>
       <div className="container">
         <Link to="/catalogue" style={{ fontSize:'0.72rem', letterSpacing:'0.12em', textTransform:'uppercase', color:'var(--mist)', display:'inline-block', marginBottom:'2.5rem', transition:'color var(--duration)' }}
           onMouseOver={e => (e.currentTarget.style.color='var(--gold)')} onMouseOut={e => (e.currentTarget.style.color='var(--mist)')}>

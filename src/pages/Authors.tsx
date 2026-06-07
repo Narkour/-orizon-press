@@ -1,9 +1,18 @@
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { penNames, getBooksByPenName } from '../data/catalogue'
 
 export default function Authors() {
   return (
     <div style={{ padding:'3rem 0 5rem' }}>
+      <Helmet>
+        <title>Our Authors | Orizon Press</title>
+        <meta name="description" content="Meet the authors behind Orizon Press — J.N. Nartey, JOJO Penwood, and Ajona Penhart." />
+        <meta property="og:title" content="Our Authors | Orizon Press" />
+        <meta property="og:description" content="Meet the authors behind Orizon Press — J.N. Nartey, JOJO Penwood, and Ajona Penhart." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://orizonpress.com/authors" />
+      </Helmet>
       <div className="container">
         <div style={{ padding:'2rem 0 3rem', maxWidth:640 }}>
           <span className="rule" />

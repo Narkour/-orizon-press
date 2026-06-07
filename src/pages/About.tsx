@@ -1,8 +1,17 @@
 import { Link } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 
 export default function About() {
   return (
     <div style={{ padding:'3rem 0 6rem' }}>
+      <Helmet>
+        <title>About Orizon Press | Independent African Publisher</title>
+        <meta name="description" content="Orizon Press is an independent publishing house dedicated to African stories, history and consciousness." />
+        <meta property="og:title" content="About Orizon Press | Independent African Publisher" />
+        <meta property="og:description" content="Orizon Press is an independent publishing house dedicated to African stories, history and consciousness." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://orizonpress.com/about" />
+      </Helmet>
       <div className="container">
         <div style={{ padding:'2rem 0 3rem', maxWidth:600 }}>
           <span className="rule" />

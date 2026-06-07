@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { books, penNames, getAllGenres, type Genre } from '../data/catalogue'
 import BookCard from '../components/BookCard'
 
@@ -26,6 +27,14 @@ export default function Catalogue() {
 
   return (
     <div style={{ padding:'3rem 0 5rem' }}>
+      <Helmet>
+        <title>Book Catalogue | Orizon Press</title>
+        <meta name="description" content="Browse all books published by Orizon Press across African history, spirituality, fiction and more." />
+        <meta property="og:title" content="Book Catalogue | Orizon Press" />
+        <meta property="og:description" content="Browse all books published by Orizon Press across African history, spirituality, fiction and more." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://orizonpress.com/catalogue" />
+      </Helmet>
       <div className="container">
         <div style={{ padding:'2rem 0 2rem' }}>
           <span className="rule" />

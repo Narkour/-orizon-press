@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { getFeaturedBooks, getAllGenres } from '../data/catalogue';
 import BookCard from '../components/BookCard';
 
@@ -8,6 +9,14 @@ export default function Home() {
 
   return (
     <div>
+      <Helmet>
+        <title>Orizon Press | African Stories, History &amp; Spirituality</title>
+        <meta name="description" content="Independent publisher of African history, consciousness, spirituality and fiction. Buy direct from Orizon Press." />
+        <meta property="og:title" content="Orizon Press | African Stories, History & Spirituality" />
+        <meta property="og:description" content="Independent publisher of African history, consciousness, spirituality and fiction. Buy direct from Orizon Press." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://orizonpress.com/" />
+      </Helmet>
       <section style={{
         padding: '6rem 2rem 4rem',
         background: 'var(--cream)',
