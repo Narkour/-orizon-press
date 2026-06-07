@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { books, penNames, getAllGenres, type Genre } from '../data/catalogue'
 import BookCard from '../components/BookCard'
 
