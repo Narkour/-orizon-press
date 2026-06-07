@@ -2,6 +2,7 @@ import { useParams, Link, Navigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { getPenNameBySlug, getBooksByPenName } from '../data/catalogue'
 import BookCard from '../components/BookCard'
+import ShareButtons from '../components/ShareButtons'
 
 export default function AuthorDetail() {
   const { slug } = useParams<{ slug: string }>()
@@ -38,6 +39,11 @@ export default function AuthorDetail() {
           <div style={{ display:'flex', flexWrap:'wrap', gap:'0.5rem' }}>
             {author.genres.map(g => <span key={g} className="genre-tag">{g}</span>)}
           </div>
+
+          <ShareButtons
+            url={`https://orizonpress.com/authors/${author.slug}`}
+            text={`${author.name} — Orizon Press`}
+          />
         </div>
       </div>
 

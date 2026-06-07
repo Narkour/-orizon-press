@@ -2,6 +2,7 @@ import { useParams, Link, Navigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { getBookBySlug, getPenNameById, getBooksByPenName } from '../data/catalogue'
 import BookCard from '../components/BookCard'
+import ShareButtons from '../components/ShareButtons'
 
 export default function BookDetail() {
   const { slug } = useParams<{ slug: string }>()
@@ -104,6 +105,11 @@ export default function BookDetail() {
                 ))}
               </div>
             )}
+
+            <ShareButtons
+              url={`https://orizonpress.com/books/${book.slug}`}
+              text={`"${book.title}"${author ? ` by ${author.name}` : ''} — Orizon Press`}
+            />
           </div>
         </div>
 
