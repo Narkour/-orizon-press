@@ -6,6 +6,7 @@ import Authors from './pages/Authors';
 import AuthorDetail from './pages/AuthorDetail';
 import BookDetail from './pages/BookDetail';
 import About from './pages/About';
+import Contact from './pages/Contact';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="/authors/:slug" element={<AuthorDetail />} />
           <Route path="/books/:slug" element={<BookDetail />} />
           <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
         </Route>
       </Routes>
     </BrowserRouter>
