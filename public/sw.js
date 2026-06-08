@@ -1,4 +1,4 @@
-const CACHE = 'orizon-press-v1'
+const CACHE = 'orizon-press-v2'
 const PRECACHE = ['/', '/manifest.json']
 
 self.addEventListener('install', e => {
@@ -23,13 +23,16 @@ self.addEventListener('fetch', e => {
 
   if (url.origin !== self.location.origin) return
 
-  // Navigation: network-first, fall back to cached shell
+  // Navigation: network-first, fall back to cached shell.
+  // Only cache 200 responses — never store a 404 from the server.
   if (request.mode === 'navigate') {
     e.respondWith(
       fetch(request)
         .then(res => {
-          const clone = res.clone()
-          caches.open(CACHE).then(c => c.put(request, clone))
+          if (res.ok) {
+            const clone = res.clone()
+            caches.open(CACHE).then(c => c.put(request, clone))
+          }
           return res
         })
         .catch(() => caches.match('/').then(r => r || Response.error()))
