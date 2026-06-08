@@ -3,7 +3,7 @@ import { Helmet } from 'react-helmet-async'
 import emailjs from '@emailjs/browser'
 
 const SERVICE_ID = 'service_ibbfjnr'
-const TEMPLATE_ID = 'j2fggf5'
+const TEMPLATE_ID = 'template_e4lau7r'
 const PUBLIC_KEY = '52nkhjjmFHsAXPRWd'
 
 type Fields = { name: string; email: string; subject: string; message: string }
