@@ -2,10 +2,9 @@ import { useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import emailjs from '@emailjs/browser'
 
-emailjs.init('52nkhjjmFHsAXPRWd')
-
 const SERVICE_ID = 'service_ibbfjnr'
 const TEMPLATE_ID = 'j2fggf5'
+const PUBLIC_KEY = '52nkhjjmFHsAXPRWd'
 
 type Fields = { name: string; email: string; subject: string; message: string }
 type Errors = Partial<Fields>
@@ -16,7 +15,7 @@ export default function Contact() {
   const [focused, setFocused] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
-  const [sendError, setSendError] = useState<string | null>(null)
+  const [sendError, setSendError] = useState<boolean | null>(null)
 
   const validate = (): Errors => {
     const e: Errors = {}
@@ -41,15 +40,17 @@ export default function Contact() {
     setSubmitting(true)
     setSendError(null)
     try {
+      console.log('Sending with:', { serviceId: SERVICE_ID, templateId: TEMPLATE_ID })
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
         from_name: form.name,
         from_email: form.email,
         subject: form.subject,
         message: form.message,
-      })
+      }, PUBLIC_KEY)
       setSubmitted(true)
-    } catch {
-      setSendError('Something went wrong. Please try again or email us directly at hello@orizonpress.com.')
+    } catch (error) {
+      console.error('EmailJS error:', JSON.stringify(error))
+      setSendError(true)
     } finally {
       setSubmitting(false)
     }
@@ -233,7 +234,7 @@ export default function Contact() {
                 </button>
                 {sendError && (
                   <p style={{ marginTop: '1rem', fontSize: '0.82rem', lineHeight: 1.6, color: '#6B1A1A' }}>
-                    {sendError}
+                    Something went wrong. Please try again or email us directly at hello@orizonpress.com.
                   </p>
                 )}
               </div>
