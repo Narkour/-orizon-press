@@ -1,5 +1,11 @@
 import { useState } from 'react'
 import { Helmet } from 'react-helmet-async'
+import emailjs from '@emailjs/browser'
+
+emailjs.init('52nkhjjmFHsAXPRWd')
+
+const SERVICE_ID = 'service_ibbfjnr'
+const TEMPLATE_ID = 'j2fggf5'
 
 type Fields = { name: string; email: string; subject: string; message: string }
 type Errors = Partial<Fields>
@@ -10,6 +16,7 @@ export default function Contact() {
   const [focused, setFocused] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
 
   const validate = (): Errors => {
     const e: Errors = {}
@@ -32,9 +39,20 @@ export default function Contact() {
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setSubmitting(true)
-    await new Promise(r => setTimeout(r, 900))
-    setSubmitting(false)
-    setSubmitted(true)
+    setSendError(null)
+    try {
+      await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+        from_name: form.name,
+        from_email: form.email,
+        subject: form.subject,
+        message: form.message,
+      })
+      setSubmitted(true)
+    } catch {
+      setSendError('Something went wrong. Please try again or email us directly at hello@orizonpress.com.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const borderColor = (field: string) => {
@@ -213,6 +231,11 @@ export default function Contact() {
                 >
                   {submitting ? 'Sending…' : 'Send Message'}
                 </button>
+                {sendError && (
+                  <p style={{ marginTop: '1rem', fontSize: '0.82rem', lineHeight: 1.6, color: '#6B1A1A' }}>
+                    {sendError}
+                  </p>
+                )}
               </div>
 
             </div>
