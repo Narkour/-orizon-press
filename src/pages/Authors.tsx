@@ -7,9 +7,9 @@ export default function Authors() {
     <div style={{ padding:'3rem 0 5rem' }}>
       <Helmet>
         <title>Our Authors | Orizon Press</title>
-        <meta name="description" content="Meet the authors behind Orizon Press — J.N. Nartey, JOJO Penwood, and Ajona Penhart." />
+        <meta name="description" content="Meet the authors behind Orizon Press — J.N. Nartey, JOJO Penwood, Ajona Penhart, and Ajora Kandasorey." />
         <meta property="og:title" content="Our Authors | Orizon Press" />
-        <meta property="og:description" content="Meet the authors behind Orizon Press — J.N. Nartey, JOJO Penwood, and Ajona Penhart." />
+        <meta property="og:description" content="Meet the authors behind Orizon Press — J.N. Nartey, JOJO Penwood, Ajona Penhart, and Ajora Kandasorey." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/authors" />
       </Helmet>

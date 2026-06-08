@@ -139,6 +139,15 @@ export const penNames: PenName[] = [
     genres: ['Christian & Faith', 'Education & Textbooks', 'Self-Help & Personal Growth'],
     accentColor: '#2e5c2e',
   },
+  {
+    id: 'ajora-kandasorey',
+    slug: 'ajora-kandasorey',
+    name: 'Ajora Kandasorey',
+    shortBio: 'Writer of literary fiction exploring faith, identity, and the human condition across the landscapes of West Africa.',
+    bio: 'Ajora Kandasorey writes literary fiction at the intersection of faith, conflict, and the intimate lives of ordinary people. Their debut novel, When the Call to Prayer Fell Silent, marks the arrival of a powerful new voice in contemporary African fiction — one attuned to the quiet courage it takes to preserve one\'s humanity in extraordinary times.',
+    genres: ['Literary Fiction'],
+    accentColor: '#1a4a5c',
+  },
   // ADD NEW PEN NAMES HERE
 ];
 
@@ -235,7 +244,7 @@ export const books: Book[] = [
     id: '6',
     slug: 'when-the-call-to-prayer-fell-silent',
     title: 'When the Call to Prayer Fell Silent',
-    penNameId: 'ajona-penhart',
+    penNameId: 'ajora-kandasorey',
     genre: 'Literary Fiction',
     coverColor: '#1a0500',
     coverImage: '/covers/prayer.png',
