@@ -11,6 +11,7 @@ export default function BookDetail() {
 
   const author = getPenNameById(book.penNameId)
   const moreBooks = getBooksByPenName(book.penNameId).filter(b => b.id !== book.id).slice(0, 4)
+  const accent = book.coverAccent ?? '#c8911f'
 
   return (
     <div style={{ padding:'2rem 0 5rem' }}>
@@ -32,15 +33,19 @@ export default function BookDetail() {
           {/* Cover + Buy */}
           <div style={{ position:'sticky', top:'calc(var(--nav-height) + 2rem)' }}>
             <div style={{ aspectRatio:'2/3', background:book.coverColor, position:'relative', overflow:'hidden', marginBottom:'1.5rem', boxShadow:'var(--shadow-mid)' }}>
-              <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'1.5rem', textAlign:'center', position:'relative' }}>
-                <span style={{ position:'absolute', top:16, left:16, width:22, height:22, borderTop:`1px solid ${book.coverAccent}`, borderLeft:`1px solid ${book.coverAccent}` }} />
-                <span style={{ position:'absolute', bottom:16, right:16, width:22, height:22, borderBottom:`1px solid ${book.coverAccent}`, borderRight:`1px solid ${book.coverAccent}` }} />
-                <span style={{ display:'block', width:32, height:1, background:book.coverAccent, marginBottom:14, opacity:0.9 }} />
-                <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.5rem', fontWeight:400, color:'var(--parchment)', lineHeight:1.3 }}>{book.title}</h3>
-                {book.subtitle && <p style={{ fontFamily:'var(--font-display)', fontSize:'0.85rem', color:'rgba(244,239,230,0.6)', marginTop:'0.5rem', fontStyle:'italic' }}>{book.subtitle}</p>}
-                <span style={{ fontFamily:'var(--font-body)', fontSize:'0.6rem', letterSpacing:'0.18em', textTransform:'uppercase', color:book.coverAccent, marginTop:'1rem', display:'block' }}>{author?.name}</span>
-                <div style={{ position:'absolute', inset:0, background:'radial-gradient(circle at 30% 20%, rgba(255,255,255,0.07) 0, transparent 60%)', pointerEvents:'none' }} />
-              </div>
+              {book.coverImage ? (
+                <img src={book.coverImage} alt={book.title} style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+              ) : (
+                <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'1.5rem', textAlign:'center', position:'relative' }}>
+                  <span style={{ position:'absolute', top:16, left:16, width:22, height:22, borderTop:`1px solid ${accent}`, borderLeft:`1px solid ${accent}` }} />
+                  <span style={{ position:'absolute', bottom:16, right:16, width:22, height:22, borderBottom:`1px solid ${accent}`, borderRight:`1px solid ${accent}` }} />
+                  <span style={{ display:'block', width:32, height:1, background:accent, marginBottom:14, opacity:0.9 }} />
+                  <h3 style={{ fontFamily:'var(--font-display)', fontSize:'1.5rem', fontWeight:400, color:'var(--parchment)', lineHeight:1.3 }}>{book.title}</h3>
+                  {book.subtitle && <p style={{ fontFamily:'var(--font-display)', fontSize:'0.85rem', color:'rgba(244,239,230,0.6)', marginTop:'0.5rem', fontStyle:'italic' }}>{book.subtitle}</p>}
+                  <span style={{ fontFamily:'var(--font-body)', fontSize:'0.6rem', letterSpacing:'0.18em', textTransform:'uppercase', color:accent, marginTop:'1rem', display:'block' }}>{author?.name}</span>
+                  <div style={{ position:'absolute', inset:0, background:'radial-gradient(circle at 30% 20%, rgba(255,255,255,0.07) 0, transparent 60%)', pointerEvents:'none' }} />
+                </div>
+              )}
             </div>
 
             {/* Buy section */}
@@ -99,7 +104,7 @@ export default function BookDetail() {
               <div style={{ marginTop:'2rem' }}>
                 {book.reviews.map((r, i) => (
                   <blockquote key={i} style={{ borderLeft:`2px solid var(--gold)`, paddingLeft:'1.25rem', marginBottom:'1.25rem' }}>
-                    <p style={{ fontFamily:'var(--font-display)', fontSize:'1.05rem', fontStyle:'italic', color:'var(--ink)', lineHeight:1.65 }}>"{r.quote}"</p>
+                    <p style={{ fontFamily:'var(--font-display)', fontSize:'1.05rem', fontStyle:'italic', color:'var(--ink)', lineHeight:1.65 }}>"{r.text}"</p>
                     <cite style={{ display:'block', fontSize:'0.68rem', letterSpacing:'0.1em', textTransform:'uppercase', color:'var(--mist)', marginTop:'0.5rem', fontStyle:'normal' }}>— {r.source}</cite>
                   </blockquote>
                 ))}
