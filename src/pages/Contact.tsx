@@ -44,8 +44,10 @@ export default function Contact() {
       await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
         from_name: form.name,
         from_email: form.email,
+        email: form.email,
         subject: form.subject,
         message: form.message,
+        name: form.name,
       }, PUBLIC_KEY)
       setSubmitted(true)
     } catch (error) {
