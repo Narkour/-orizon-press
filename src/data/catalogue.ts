@@ -3,13 +3,72 @@
 // ============================================
 
 export type Genre =
-  | 'Consciousness'
+  // Fiction & Literature
+  | 'Literary Fiction'
+  | 'Romance'
+  | 'Crime & Thriller'
+  | 'Legal & Courtroom Drama'
+  | 'Mystery'
+  | 'Historical Fiction'
+  | 'Science Fiction & Fantasy'
+  | "Children's Fiction"
+  // Non-Fiction
   | 'African History'
-  | 'African Spirituality'
-  | 'Fiction'
-  | 'Christian'
-  | 'Textbooks'
-  | 'Self Help';
+  | 'Biography & Memoir'
+  | 'Self-Help & Personal Growth'
+  | 'Education & Textbooks'
+  | 'Religion & Spirituality'
+  | 'Health & Wellness'
+  | 'Science & Society'
+  | 'True Crime'
+  // Specialist
+  | 'African Spirituality & Consciousness'
+  | 'Christian & Faith'
+  | "Children's Books"
+  | 'Young Adult';
+
+export interface GenreGroup {
+  label: string;
+  genres: Genre[];
+}
+
+export const genreGroups: GenreGroup[] = [
+  {
+    label: 'Fiction & Literature',
+    genres: [
+      'Literary Fiction',
+      'Romance',
+      'Crime & Thriller',
+      'Legal & Courtroom Drama',
+      'Mystery',
+      'Historical Fiction',
+      'Science Fiction & Fantasy',
+      "Children's Fiction",
+    ],
+  },
+  {
+    label: 'Non-Fiction',
+    genres: [
+      'African History',
+      'Biography & Memoir',
+      'Self-Help & Personal Growth',
+      'Education & Textbooks',
+      'Religion & Spirituality',
+      'Health & Wellness',
+      'Science & Society',
+      'True Crime',
+    ],
+  },
+  {
+    label: 'Specialist',
+    genres: [
+      'African Spirituality & Consciousness',
+      'Christian & Faith',
+      "Children's Books",
+      'Young Adult',
+    ],
+  },
+];
 
 export interface PenName {
   id: string;
@@ -57,7 +116,7 @@ export const penNames: PenName[] = [
     name: 'J.N. Nartey',
     shortBio: 'Writer on African history, consciousness, and the deeper architecture of human experience.',
     bio: 'J.N. Nartey writes at the intersection of African intellectual heritage and universal consciousness. Drawing from deep research into pre-colonial African civilizations, Kemetic philosophy, and modern metaphysics, their work bridges ancient wisdom with contemporary understanding.',
-    genres: ['African History', 'Consciousness', 'African Spirituality'],
+    genres: ['African History', 'African Spirituality & Consciousness'],
     accentColor: '#c8911f',
   },
   {
@@ -65,8 +124,8 @@ export const penNames: PenName[] = [
     slug: 'jojo-penwood',
     name: 'JOJO Penwood',
     shortBio: 'Storyteller, spiritual guide, and explorer of the spaces between worlds.',
-    bio: 'JOJO Penwood is the pen name behind a growing catalog of fiction and spiritual exploration titles. With distribution across Amazon, OverDrive, Google Books, Blackwell\'s UK, and Barnes & Noble, JOJO\'s work has found readers across Europe and the Americas.',
-    genres: ['Fiction', 'Consciousness'],
+    bio: "JOJO Penwood is the pen name behind a growing catalog of fiction and spiritual exploration titles. With distribution across Amazon, OverDrive, Google Books, Blackwell's UK, and Barnes & Noble, JOJO's work has found readers across Europe and the Americas.",
+    genres: ['Literary Fiction', 'Historical Fiction', 'African Spirituality & Consciousness'],
     accentColor: '#6b1f1f',
   },
   {
@@ -75,7 +134,7 @@ export const penNames: PenName[] = [
     name: 'Ajona Penhart',
     shortBio: 'Author of Christian devotional works and educational texts rooted in faith and scholarship.',
     bio: 'Ajona Penhart writes with clarity, depth, and purpose. Their Christian titles offer readers practical spiritual guidance grounded in scripture, while their textbooks bring academic rigour to questions of faith and identity.',
-    genres: ['Christian', 'Textbooks', 'Self Help'],
+    genres: ['Christian & Faith', 'Education & Textbooks', 'Self-Help & Personal Growth'],
     accentColor: '#2e5c2e',
   },
   // ADD NEW PEN NAMES HERE
@@ -108,7 +167,7 @@ export const books: Book[] = [
     title: 'The Ori Frequency',
     subtitle: 'Unlocking Your Personal Destiny Through Yoruba Wisdom',
     penNameId: 'jn-nartey',
-    genre: 'African Spirituality',
+    genre: 'African Spirituality & Consciousness',
     shortDescription: 'A transformative guide to understanding and activating your Ori.',
     description: 'In Yoruba cosmology, the Ori is the divine essence that each soul chooses before incarnating. The Ori Frequency translates this profound metaphysical system into practical tools for self-discovery and conscious living.',
     coverColor: '#2a1a0a',
@@ -124,7 +183,7 @@ export const books: Book[] = [
     title: 'Between Horizons',
     subtitle: 'A Novel',
     penNameId: 'jojo-penwood',
-    genre: 'Fiction',
+    genre: 'Literary Fiction',
     shortDescription: 'A luminous debut novel about a woman who can see the threads that connect all human lives.',
     description: 'Between Horizons follows Adaeze, a cartographer who discovers she can map not terrain but fate — the invisible threads that run between human beings across time and distance.',
     coverColor: '#0f1a2e',
@@ -141,7 +200,7 @@ export const books: Book[] = [
     title: 'The Quiet Fire',
     subtitle: 'Devotions for the Searching Soul',
     penNameId: 'ajona-penhart',
-    genre: 'Christian',
+    genre: 'Christian & Faith',
     shortDescription: 'Thirty days of devotional readings for those navigating doubt and transition.',
     description: 'The Quiet Fire is a devotional for those who have sat with unanswered prayers and kept faith anyway. Written for the believer in the wilderness.',
     coverColor: '#1f1a2e',
@@ -157,9 +216,9 @@ export const books: Book[] = [
     title: 'Consciousness & the African Mind',
     subtitle: 'A Philosophical Inquiry',
     penNameId: 'jn-nartey',
-    genre: 'Consciousness',
+    genre: 'African Spirituality & Consciousness',
     shortDescription: 'A rigorous philosophical exploration of consciousness through African intellectual traditions.',
-    description: 'What does it mean to think from within an African philosophical tradition? This work examines concepts of consciousness across Ubuntu, Ma\'at, and Ifá and places them in dialogue with Western phenomenology.',
+    description: "What does it mean to think from within an African philosophical tradition? This work examines concepts of consciousness across Ubuntu, Ma'at, and Ifá and places them in dialogue with Western phenomenology.",
     coverColor: '#1e1414',
     coverAccent: '#c8911f',
     featured: false,
@@ -172,7 +231,7 @@ export const books: Book[] = [
     slug: 'the-salt-road',
     title: 'The Salt Road',
     penNameId: 'jojo-penwood',
-    genre: 'Fiction',
+    genre: 'Historical Fiction',
     shortDescription: 'A sweeping historical novel tracing the trans-Saharan trade routes and the civilizations they built.',
     description: 'The Salt Road follows three generations of a trading family across five centuries of West African history, from the height of the Mali Empire to the first tremors of European contact.',
     coverColor: '#2a1e0a',
@@ -193,4 +252,4 @@ export const getBookBySlug = (slug: string) => books.find(b => b.slug === slug);
 export const getPenNameById = (id: string) => penNames.find(p => p.id === id);
 export const getPenNameBySlug = (slug: string) => penNames.find(p => p.slug === slug);
 export const getFeaturedBooks = () => books.filter(b => b.featured);
-export const getAllGenres = (): Genre[] => [...new Set(books.map(b => b.genre))];
+export const getAllGenres = (): Genre[] => genreGroups.flatMap(g => g.genres);

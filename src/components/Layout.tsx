@@ -55,7 +55,7 @@ export default function Layout() {
           </Link>
 
           <nav style={{ display: 'flex', alignItems: 'center', gap: '2rem' }} className="desktop-nav">
-            {['catalogue','authors','about','contact'].map(path => (
+            {['catalogue','authors','blog','about','contact'].map(path => (
               <NavLink key={path} to={`/${path}`} style={({ isActive }) => ({
                 fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase',
                 color: isActive ? 'var(--gold)' : 'var(--mist)', transition: 'color var(--duration)',
@@ -129,7 +129,7 @@ export default function Layout() {
             </div>
             <div>
               <div style={{ fontSize: '0.62rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '1rem' }}>Explore</div>
-              {['catalogue','authors','about','contact'].map(p => (
+              {['catalogue','authors','blog','about','contact'].map(p => (
                 <div key={p} style={{ marginBottom: '0.6rem' }}>
                   <Link to={`/${p}`} style={{ fontSize: '0.85rem', color: 'rgba(244,239,230,0.6)', transition: 'color var(--duration)' }}
                     onMouseOver={e => (e.currentTarget.style.color = 'var(--parchment)')}
