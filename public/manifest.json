@@ -1,0 +1,25 @@
+{
+  "name": "Orizon Press",
+  "short_name": "Orizon",
+  "description": "Independent publisher of African history, consciousness, spirituality and fiction",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5EDD9",
+  "theme_color": "#C4862A",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

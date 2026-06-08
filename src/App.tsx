@@ -9,6 +9,7 @@ import About from './pages/About';
 import Contact from './pages/Contact';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
+import InstallPrompt from './components/InstallPrompt';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/blog/:slug" element={<BlogPost />} />
         </Route>
       </Routes>
+      <InstallPrompt />
     </BrowserRouter>
   );
 }
