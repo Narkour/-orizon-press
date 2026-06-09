@@ -1,0 +1,53 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { Client, Environment, OrdersController } from '@paypal/paypal-server-sdk'
+
+const paypalClient = new Client({
+  clientCredentialsAuthCredentials: {
+    oAuthClientId: process.env.PAYPAL_CLIENT_ID!,
+    oAuthClientSecret: process.env.PAYPAL_CLIENT_SECRET!,
+  },
+  environment: Environment.Production,
+})
+
+const ordersController = new OrdersController(paypalClient)
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+
+  const { bookSlug, bookTitle, amount, buyerEmail } = req.body ?? {}
+
+  if (!bookSlug || !bookTitle || !amount || !buyerEmail) {
+    return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  const parsedAmount = parseFloat(amount)
+  if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    return res.status(400).json({ error: 'Invalid amount' })
+  }
+
+  try {
+    const { result } = await ordersController.ordersCreate({
+      body: {
+        intent: 'CAPTURE',
+        purchaseUnits: [
+          {
+            amount: {
+              currencyCode: 'USD',
+              value: parsedAmount.toFixed(2),
+            },
+            description: bookTitle,
+            customId: `${bookSlug}|${buyerEmail}`,
+          },
+        ],
+      },
+      prefer: 'return=representation',
+    })
+
+    return res.status(200).json({ orderId: result.id })
+  } catch (err) {
+    console.error('[create-paypal-order]', err)
+    return res.status(500).json({ error: 'Failed to create PayPal order' })
+  }
+}
