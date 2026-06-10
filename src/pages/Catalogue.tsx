@@ -149,7 +149,7 @@ export default function Catalogue() {
         </div>
 
         {filtered.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '3rem 1.5rem' }}>
+          <div className="catalogue-grid">
             {filtered.map((book, i) => <BookCard key={book.id} book={book} index={i} />)}
           </div>
         ) : (
