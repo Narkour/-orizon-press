@@ -9,7 +9,7 @@ export default function BookCard({ book, index = 0 }: { book: Book; index?: numb
 
   return (
     <Link to={`/books/${book.slug}`} className="book-card fade-up" style={{ animationDelay: `${delay}s` }}>
-      <div className="book-cover" style={{ background: book.coverColor }}>
+      <div className="book-cover" style={{ background: book.coverColor, maxWidth: '180px', margin: '0 auto' }}>
         {book.coverImage ? (
           <img
             src={book.coverImage}
