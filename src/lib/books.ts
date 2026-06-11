@@ -32,7 +32,7 @@ export function mapBook(row: DbBook): Book {
       available: row.available && !!row.pdf_path,
       price: Number(row.price),
     },
-    print: { available: false, price: 0 },
+    print: { available: true, price: 16.99 },
   }
 }
 
