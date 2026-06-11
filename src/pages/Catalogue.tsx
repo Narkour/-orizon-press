@@ -17,7 +17,7 @@ export default function Catalogue() {
     const ma = !activeAuthor || b.penNameId === activeAuthor
     const ms = !search || b.title.toLowerCase().includes(search.toLowerCase()) || b.description.toLowerCase().includes(search.toLowerCase())
     return mg && ma && ms
-  }), [activeGenre, activeAuthor, search])
+  }), [books, activeGenre, activeAuthor, search])
 
   const setGenre = (g: Genre | null) => {
     const p = new URLSearchParams(searchParams)
