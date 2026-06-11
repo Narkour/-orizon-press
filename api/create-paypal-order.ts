@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { Client, Environment, OrdersController } from '@paypal/paypal-server-sdk'
+import { Client, Environment, OrdersController, CheckoutPaymentIntent } from '@paypal/paypal-server-sdk'
 
 const paypalClient = new Client({
   clientCredentialsAuthCredentials: {
@@ -28,9 +28,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { result } = await ordersController.ordersCreate({
+    const { result } = await ordersController.createOrder({
       body: {
-        intent: 'CAPTURE',
+        intent: CheckoutPaymentIntent.Capture,
         purchaseUnits: [
           {
             amount: {

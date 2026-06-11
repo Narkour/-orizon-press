@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { result: capture } = await ordersController.ordersCapture({
+    const { result: capture } = await ordersController.captureOrder({
       id: orderId,
       prefer: 'return=representation',
     })
