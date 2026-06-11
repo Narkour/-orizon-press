@@ -485,7 +485,13 @@ export default function BookDetail() {
                       ${book.print.price.toFixed(2)}
                     </span>
                   </div>
-                  <button className="btn btn--outline" style={{ fontSize: '0.68rem' }}>Buy Print</button>
+                  <a
+                    className="btn btn--outline"
+                    style={{ fontSize: '0.68rem', textDecoration: 'none' }}
+                    href={`https://www.amazon.com/s?k=${encodeURIComponent(book.title)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >Buy Print</a>
                 </div>
               )}
             </div>
