@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { Client, Environment, OrdersController, CheckoutPaymentIntent } from '@paypal/paypal-server-sdk'
+import { rateLimit } from './_lib/rate-limit.js'
 
 const paypalClient = new Client({
   clientCredentialsAuthCredentials: {
@@ -15,6 +16,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
+
+  // 10 order attempts per IP per 15 minutes
+  if (!rateLimit(req, res, { limit: 10, windowMs: 15 * 60_000, label: 'create-order' })) return
 
   const { bookSlug, bookTitle, amount, buyerEmail } = req.body ?? {}
 

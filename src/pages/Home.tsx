@@ -70,6 +70,39 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── Social proof banner ── */}
+      <section style={{ background: 'var(--ink)', padding: '2rem' }}>
+        <div style={{
+          maxWidth: '900px', margin: '0 auto',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: '3rem', flexWrap: 'wrap',
+        }}>
+          {[
+            { stat: '316', label: 'readers worldwide' },
+            { stat: '12',  label: 'countries' },
+            { stat: '20',  label: 'titles in print' },
+          ].map(({ stat, label }) => (
+            <div key={label} style={{ textAlign: 'center' }}>
+              <span style={{
+                display: 'block',
+                fontFamily: 'var(--font-display)',
+                fontSize: 'clamp(2rem, 4vw, 2.8rem)',
+                color: 'var(--gold)',
+                lineHeight: 1,
+              }}>{stat}</span>
+              <span style={{
+                display: 'block',
+                fontSize: '0.65rem',
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'rgba(244,239,230,0.55)',
+                marginTop: '0.4rem',
+              }}>{label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
       <section style={{ padding: '2rem', borderTop: '1px solid var(--border)', background: 'var(--parchment)' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: '0.7rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--mist)' }}>Genres</span>

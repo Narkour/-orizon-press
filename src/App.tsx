@@ -10,11 +10,13 @@ import Contact from './pages/Contact';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
 import InstallPrompt from './components/InstallPrompt';
+import Admin from './pages/Admin';
 
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/admin" element={<Admin />} />
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
           <Route path="/catalogue" element={<Catalogue />} />

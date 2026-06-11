@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
+import { rateLimit } from './_lib/rate-limit.js'
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -13,6 +14,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
+
+  // 20 download attempts per IP per hour
+  if (!rateLimit(req, res, { limit: 20, windowMs: 60 * 60_000, label: 'download' })) return
 
   const { token } = req.query
   if (!token || typeof token !== 'string') {

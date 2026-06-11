@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { Client, Environment, OrdersController } from '@paypal/paypal-server-sdk'
+import { rateLimit } from './_lib/rate-limit.js'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 
@@ -24,6 +25,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
+
+  // 10 captures per IP per 15 minutes
+  if (!rateLimit(req, res, { limit: 10, windowMs: 15 * 60_000, label: 'capture-order' })) return
 
   const { orderId, buyerEmail, bookSlug, bookTitle, amount } = req.body ?? {}
 
