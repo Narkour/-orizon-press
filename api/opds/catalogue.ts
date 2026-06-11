@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { books, getPenNameById } from '../../src/data/catalogue'
+import { books, getPenNameById } from '../../src/data/catalogue.js'
 
 const SITE = 'https://orizonpress.com'
 
