@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { books, penNames, genreGroups, type Genre } from '../data/catalogue'
+import { penNames, genreGroups, type Genre } from '../data/catalogue'
 import BookCard from '../components/BookCard'
+import { useBooks } from '../hooks/useBooks'
 
 export default function Catalogue() {
+  const { books, loading } = useBooks()
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const activeGenre = searchParams.get('genre') as Genre | null
@@ -148,7 +150,11 @@ export default function Catalogue() {
           {activeGenre && <span style={{ color: 'var(--gold)', marginLeft: '0.5rem' }}>· {activeGenre}</span>}
         </div>
 
-        {filtered.length > 0 ? (
+        {loading ? (
+          <div style={{ padding: '5rem 0', textAlign: 'center', color: 'var(--mist)', fontSize: '0.82rem', letterSpacing: '0.1em' }}>
+            Loading catalogue…
+          </div>
+        ) : filtered.length > 0 ? (
           <div className="catalogue-grid">
             {filtered.map((book, i) => <BookCard key={book.id} book={book} index={i} />)}
           </div>

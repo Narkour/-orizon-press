@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, Navigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { getBookBySlug, getPenNameById, getBooksByPenName, type Book } from '../data/catalogue'
+import { getPenNameById, type Book } from '../data/catalogue'
 import BookCard from '../components/BookCard'
 import ShareButtons from '../components/ShareButtons'
+import { useBooks } from '../hooks/useBooks'
 
 // ─── PayPal SDK browser global ────────────────────────────────────────────────
 declare global {
@@ -393,12 +394,21 @@ function EbookPurchaseModal({ book, onClose }: { book: Book; onClose: () => void
 export default function BookDetail() {
   const { slug } = useParams<{ slug: string }>()
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
+  const { books, loading } = useBooks()
 
-  const book = getBookBySlug(slug || '')
+  if (loading) {
+    return (
+      <div style={{ padding: '8rem 0', textAlign: 'center', color: 'var(--mist)', fontSize: '0.82rem', letterSpacing: '0.1em' }}>
+        Loading…
+      </div>
+    )
+  }
+
+  const book = books.find(b => b.slug === (slug || ''))
   if (!book) return <Navigate to="/catalogue" replace />
 
   const author = getPenNameById(book.penNameId)
-  const moreBooks = getBooksByPenName(book.penNameId).filter(b => b.id !== book.id).slice(0, 4)
+  const moreBooks = books.filter(b => b.penNameId === book.penNameId && b.id !== book.id).slice(0, 4)
   const accent = book.coverAccent ?? '#c8911f'
 
   return (

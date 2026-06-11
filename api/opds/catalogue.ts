@@ -1,5 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { books, getPenNameById } from '../../src/data/catalogue.js'
+import { createClient } from '@supabase/supabase-js'
+import { getPenNameById } from '../../src/data/catalogue.js'
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SECRET_KEY!
+)
 
 const SITE = 'https://orizonpress.com'
 
@@ -17,31 +23,46 @@ function imgMime(url: string): string {
   return 'image/png'
 }
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).end()
+
+  const { data: books, error } = await supabase
+    .from('books')
+    .select('*')
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('[/opds/catalogue]', error)
+    return res.status(500).send('Internal Server Error')
+  }
 
   const updated = new Date().toISOString()
 
-  const entries = books.map(book => {
-    const author = getPenNameById(book.penNameId)
-    const coverUrl = book.coverImage ? `${SITE}${book.coverImage}` : null
+  const entries = (books ?? []).map((book: {
+    slug: string; title: string; pen_name_id: string; genre: string;
+    short_description: string; cover_url: string; available: boolean;
+    pdf_path: string; price: number;
+  }) => {
+    const author = getPenNameById(book.pen_name_id)
+    const coverUrl = book.cover_url || null
     const coverType = coverUrl ? imgMime(coverUrl) : null
     const bookUrl = `${SITE}/books/${book.slug}`
+    const ebookAvailable = book.available && !!book.pdf_path
 
     const coverLinks = coverUrl
       ? `    <link rel="http://opds-spec.org/image"
-          href="${coverUrl}"
+          href="${esc(coverUrl)}"
           type="${coverType}"/>
     <link rel="http://opds-spec.org/image/thumbnail"
-          href="${coverUrl}"
+          href="${esc(coverUrl)}"
           type="${coverType}"/>`
       : ''
 
-    const buyLink = book.ebook.available
+    const buyLink = ebookAvailable
       ? `    <link rel="http://opds-spec.org/acquisition/buy"
           href="${bookUrl}"
           type="text/html">
-      <opds:price currencycode="USD">${book.ebook.price.toFixed(2)}</opds:price>
+      <opds:price currencycode="USD">${Number(book.price).toFixed(2)}</opds:price>
     </link>`
       : ''
 
@@ -51,7 +72,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     <updated>${updated}</updated>
     <author><name>${esc(author?.name ?? 'Orizon Press')}</name></author>
     <category term="${esc(book.genre)}" label="${esc(book.genre)}"/>
-    <summary>${esc(book.shortDescription)}</summary>
+    <summary>${esc(book.short_description || '')}</summary>
 ${coverLinks}
 ${buyLink}
   </entry>`

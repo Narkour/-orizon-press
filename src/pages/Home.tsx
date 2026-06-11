@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { getFeaturedBooks, getAllGenres } from '../data/catalogue';
+import { getAllGenres } from '../data/catalogue';
 import BookCard from '../components/BookCard';
+import { useBooks } from '../hooks/useBooks';
 
 export default function Home() {
-  const featured = getFeaturedBooks();
+  const { books } = useBooks();
+  const featured = books.filter(b => b.ebook.available).slice(0, 4);
   const genres = getAllGenres();
 
   return (

@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { penNames, getBooksByPenName } from '../data/catalogue'
+import { penNames } from '../data/catalogue'
+import { useBooks } from '../hooks/useBooks'
 
 export default function Authors() {
+  const { books } = useBooks()
+
   return (
     <div style={{ padding:'3rem 0 5rem' }}>
       <Helmet>
@@ -25,7 +28,7 @@ export default function Authors() {
 
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(340px, 1fr))', gap:'1.25rem' }}>
           {penNames.map((author, i) => {
-            const authorBooks = getBooksByPenName(author.id)
+            const authorBooks = books.filter(b => b.penNameId === author.id)
             return (
               <Link key={author.id} to={`/authors/${author.slug}`}
                 className="fade-up" style={{ animationDelay:`${i*0.12}s`,

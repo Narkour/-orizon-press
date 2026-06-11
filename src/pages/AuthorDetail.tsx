@@ -1,14 +1,16 @@
 import { useParams, Link, Navigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { getPenNameBySlug, getBooksByPenName } from '../data/catalogue'
+import { getPenNameBySlug } from '../data/catalogue'
 import BookCard from '../components/BookCard'
 import ShareButtons from '../components/ShareButtons'
+import { useBooks } from '../hooks/useBooks'
 
 export default function AuthorDetail() {
   const { slug } = useParams<{ slug: string }>()
+  const { books } = useBooks()
   const author = getPenNameBySlug(slug || '')
   if (!author) return <Navigate to="/authors" replace />
-  const authorBooks = getBooksByPenName(author.id)
+  const authorBooks = books.filter(b => b.penNameId === author.id)
 
   return (
     <div style={{ paddingBottom:'5rem' }}>
