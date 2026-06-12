@@ -15,7 +15,7 @@ interface GeneratedMetadata {
 
 interface UploadResult {
   book: BookRow; metadata: GeneratedMetadata
-  files: { pdf: string; epub: string }; message: string
+  files: { pdf: string; epub: string; cover?: string }; message: string
 }
 
 type Step = 'idle' | 'processing' | 'result' | 'error'
@@ -574,12 +574,14 @@ export default function Admin() {
   const [authError, setAuthError] = useState('')
 
   // Fields
-  const [title,     setTitle]     = useState('')
-  const [authorVal, setAuthorVal] = useState('')
-  const [penNameId, setPenNameId] = useState('')
-  const [genre,     setGenre]     = useState('')
-  const [price,     setPrice]     = useState('9.99')
-  const [file,      setFile]      = useState<File | null>(null)
+  const [title,        setTitle]        = useState('')
+  const [authorVal,    setAuthorVal]    = useState('')
+  const [penNameId,    setPenNameId]    = useState('')
+  const [genre,        setGenre]        = useState('')
+  const [price,        setPrice]        = useState('9.99')
+  const [file,         setFile]         = useState<File | null>(null)
+  const [coverFile,    setCoverFile]    = useState<File | null>(null)
+  const [coverPreview, setCoverPreview] = useState('')
 
   // Upload state
   const [step,   setStep]   = useState<Step>('idle')
@@ -589,7 +591,8 @@ export default function Admin() {
   const [editedMeta, setEditedMeta] = useState<GeneratedMetadata | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const fileRef  = useRef<HTMLInputElement>(null)
+  const coverRef = useRef<HTMLInputElement>(null)
 
   // Verify admin password against API
   const handleAuth = async (pw: string) => {
@@ -623,6 +626,7 @@ export default function Admin() {
     form.append('penNameId',  penNameId)
     form.append('genre',      genre)
     form.append('price',      price)
+    if (coverFile) form.append('cover', coverFile)
 
     // Simulate stage progression while waiting for the server
     const stages: ProcessStage[] = ['extract','ai','pdf','epub','upload','save']
@@ -683,8 +687,9 @@ export default function Admin() {
   const reset = () => {
     setStep('idle'); setStage(null); setResult(null); setErrMsg('')
     setTitle(''); setAuthorVal(''); setPenNameId(''); setGenre('')
-    setPrice('9.99'); setFile(null)
+    setPrice('9.99'); setFile(null); setCoverFile(null); setCoverPreview('')
     if (fileRef.current) fileRef.current.value = ''
+    if (coverRef.current) coverRef.current.value = ''
   }
 
   if (!authed) return <AuthGate onAuth={handleAuth} error={authError} />
@@ -731,16 +736,49 @@ export default function Admin() {
             </div>
           )}
 
-          <div>
-            <label style={labelStyle}>Manuscript (.docx)</label>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={e => setFile(e.target.files?.[0] ?? null)}
-              required
-              style={{ fontSize: '0.82rem', fontFamily: 'var(--font-body)' }}
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'start' }}>
+            <div>
+              <label style={labelStyle}>Manuscript (.docx)</label>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                onChange={e => setFile(e.target.files?.[0] ?? null)}
+                required
+                style={{ fontSize: '0.82rem', fontFamily: 'var(--font-body)' }}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>Cover image — PNG / JPG / WebP (optional)</label>
+              <input
+                ref={coverRef}
+                type="file"
+                accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                onChange={e => {
+                  const f = e.target.files?.[0] ?? null
+                  setCoverFile(f)
+                  if (f) {
+                    const reader = new FileReader()
+                    reader.onload = ev => setCoverPreview(ev.target?.result as string)
+                    reader.readAsDataURL(f)
+                  } else {
+                    setCoverPreview('')
+                  }
+                }}
+                style={{ fontSize: '0.82rem', fontFamily: 'var(--font-body)' }}
+              />
+              {coverPreview && (
+                <img
+                  src={coverPreview}
+                  alt="Cover preview"
+                  style={{
+                    marginTop: '0.75rem', display: 'block',
+                    width: 80, aspectRatio: '2/3', objectFit: 'cover',
+                    boxShadow: 'var(--shadow-mid)',
+                  }}
+                />
+              )}
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
@@ -797,7 +835,7 @@ export default function Admin() {
       {step === 'result' && result && editedMeta && (
         <div>
           <div style={{ padding: '1rem', background: 'rgba(46,125,50,0.07)', border: '1px solid rgba(46,125,50,0.3)', marginBottom: '2rem', fontSize: '0.85rem' }}>
-            ✓ {result.message} — PDF: {result.files.pdf} · EPUB: {result.files.epub}
+            ✓ {result.message} — PDF: {result.files.pdf} · EPUB: {result.files.epub}{result.files.cover ? ' · Cover uploaded' : ' · No cover (add via Supabase table editor)'}
           </div>
 
           <div style={{ display: 'grid', gap: '1.25rem' }}>

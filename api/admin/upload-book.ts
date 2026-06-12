@@ -21,37 +21,39 @@ function slugify(title: string): string {
     .slice(0, 80)
 }
 
-/** Parse multipart/form-data and return fields + file buffer. */
+interface ParsedFile { buffer: Buffer; filename: string; mimeType: string }
+
+/** Parse multipart/form-data — returns all fields and named file buffers. */
 function parseForm(req: VercelRequest): Promise<{
   fields: Record<string, string>
-  fileBuffer: Buffer
-  filename: string
+  files: Record<string, ParsedFile>
 }> {
   return new Promise((resolve, reject) => {
     const bb = Busboy({ headers: req.headers })
     const fields: Record<string, string> = {}
-    let fileBuffer: Buffer | null = null
-    let filename = ''
+    const files: Record<string, ParsedFile> = {}
 
     bb.on('field', (name, val) => { fields[name] = val })
 
-    bb.on('file', (_field, stream, info) => {
-      filename = info.filename
+    bb.on('file', (fieldName, stream, info) => {
       const chunks: Buffer[] = []
       stream.on('data', (d: Buffer) => chunks.push(d))
-      stream.on('end', () => { fileBuffer = Buffer.concat(chunks) })
+      stream.on('end', () => {
+        files[fieldName] = {
+          buffer: Buffer.concat(chunks),
+          filename: info.filename,
+          mimeType: info.mimeType,
+        }
+      })
     })
 
     bb.on('finish', () => {
-      if (!fileBuffer) return reject(new Error('No file received'))
-      resolve({ fields, fileBuffer, filename })
+      if (!files['file']) return reject(new Error('No DOCX file received'))
+      resolve({ fields, files })
     })
 
     bb.on('error', reject)
 
-    // vercel dev pre-reads the body and restores it via patched req.on('data'/'end').
-    // Using req.pipe(bb) can fail because pipe() may bypass the monkey-patch.
-    // Explicitly binding 'data' and 'end' is reliable in both dev and production.
     req.on('data', (chunk: Buffer) => bb.write(chunk))
     req.on('end', () => bb.end())
     req.on('error', reject)
@@ -253,12 +255,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let fields: Record<string, string> = {}
   let docxBuffer: Buffer
   let filename: string
+  let coverFile: ParsedFile | undefined
 
   try {
     const parsed = await parseForm(req)
     fields = parsed.fields
-    docxBuffer = parsed.fileBuffer
-    filename = parsed.filename
+    docxBuffer = parsed.files['file'].buffer
+    filename = parsed.files['file'].filename
+    coverFile = parsed.files['cover']
   } catch (err) {
     console.error('[upload-book] form parse error:', err)
     return res.status(400).json({ error: 'Could not parse upload. Send multipart/form-data.' })
@@ -266,6 +270,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!filename.toLowerCase().endsWith('.docx')) {
     return res.status(400).json({ error: 'File must be a .docx document.' })
+  }
+
+  if (coverFile) {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+    if (!allowed.includes(coverFile.mimeType)) {
+      return res.status(400).json({ error: 'Cover must be PNG, JPG, or WebP.' })
+    }
   }
 
   const { title, author, penNameId, genre, price } = fields
@@ -336,8 +347,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: `Storage upload failed: ${storageErr}` })
   }
 
+  // ── 5b. Upload cover image ────────────────────────────────
+  let coverUrl: string | null = null
+  if (coverFile && coverFile.buffer.length > 0) {
+    const ext = coverFile.mimeType === 'image/jpeg' || coverFile.mimeType === 'image/jpg'
+      ? 'jpg'
+      : coverFile.mimeType === 'image/webp'
+        ? 'webp'
+        : 'png'
+    const coverPath = `${slug}.${ext}`
+    const { error: coverErr } = await supabase.storage
+      .from('covers')
+      .upload(coverPath, coverFile.buffer, { contentType: coverFile.mimeType, upsert: true })
+    if (coverErr) {
+      console.error('[upload-book] Cover upload error:', coverErr)
+      return res.status(500).json({ error: `Cover upload failed: ${coverErr.message}` })
+    }
+    const { data: { publicUrl } } = supabase.storage.from('covers').getPublicUrl(coverPath)
+    coverUrl = publicUrl
+  }
+
   // ── 6. Upsert book record ─────────────────────────────────
-  const record = {
+  const record: Record<string, unknown> = {
     slug,
     title,
     author,
@@ -353,6 +384,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     seo_keywords:      metadata.seoKeywords,
     tagline:           metadata.tagline,
   }
+  if (coverUrl !== null) record.cover_url = coverUrl
 
   const { data: upserted, error: dbError } = await supabase
     .from('books')
@@ -371,7 +403,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({
     book:     upserted,
     metadata: metadata,
-    files:    { pdf: pdfPath, epub: epubPath },
+    files:    { pdf: pdfPath, epub: epubPath, cover: coverUrl ?? undefined },
     message:  `Book "${title}" processed and saved.`,
   })
 }
