@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { Client, Environment, OrdersController } from '@paypal/paypal-server-sdk'
 import { rateLimit } from './_lib/rate-limit.js'
+import { setCorsRestricted, handleOptions } from './_lib/cors.js'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 
@@ -22,6 +23,8 @@ const supabase = createClient(
 const TOKEN_EXPIRY_HOURS = 24
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCorsRestricted(res)
+  if (!handleOptions(req, res)) return
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }

@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
+import { rateLimit } from './_lib/rate-limit.js'
+import { setCors, handleOptions } from './_lib/cors.js'
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -7,9 +9,12 @@ const supabase = createClient(
 )
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
+  setCors(res)
+  if (!handleOptions(req, res)) return
 
   if (req.method === 'GET') {
+    if (!rateLimit(req, res, { limit: 60, windowMs: 60 * 60_000, label: 'reviews-get' })) return
+
     const { bookSlug } = req.query
     if (!bookSlug || typeof bookSlug !== 'string') {
       return res.status(400).json({ error: 'bookSlug required' })
@@ -27,6 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   if (req.method === 'POST') {
+    if (!rateLimit(req, res, { limit: 5, windowMs: 60 * 60_000, label: 'reviews-post' })) return
+
     const { bookSlug, reviewerName, reviewerEmail, rating, body } = req.body ?? {}
 
     if (!bookSlug || !reviewerName?.trim() || !reviewerEmail?.trim() || !rating || !body?.trim()) {

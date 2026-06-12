@@ -1,9 +1,14 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import { rateLimit } from '../_lib/rate-limit.js'
+import { setCors, handleOptions } from '../_lib/cors.js'
 
 const SITE = 'https://orizonpress.com'
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
+  setCors(res)
+  if (!handleOptions(req, res)) return
   if (req.method !== 'GET') return res.status(405).end()
+  if (!rateLimit(req, res, { limit: 60, windowMs: 60 * 60_000, label: 'opds-index' })) return
 
   const updated = new Date().toISOString()
 

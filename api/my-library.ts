@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
 import { rateLimit } from './_lib/rate-limit.js'
+import { setCorsRestricted, handleOptions } from './_lib/cors.js'
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -11,6 +12,9 @@ const supabase = createClient(
 const TOKEN_EXPIRY_HOURS = 24
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCorsRestricted(res)
+  if (!handleOptions(req, res)) return
+
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'Not authenticated' })
 

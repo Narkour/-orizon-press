@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { Client, Environment, OrdersController, CheckoutPaymentIntent } from '@paypal/paypal-server-sdk'
 import { rateLimit } from './_lib/rate-limit.js'
+import { setCorsRestricted, handleOptions } from './_lib/cors.js'
 
 const paypalClient = new Client({
   clientCredentialsAuthCredentials: {
@@ -12,7 +13,11 @@ const paypalClient = new Client({
 
 const ordersController = new OrdersController(paypalClient)
 
+const MAX_AMOUNT = 500
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCorsRestricted(res)
+  if (!handleOptions(req, res)) return
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
@@ -29,6 +34,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parsedAmount = parseFloat(amount)
   if (isNaN(parsedAmount) || parsedAmount <= 0) {
     return res.status(400).json({ error: 'Invalid amount' })
+  }
+  if (parsedAmount > MAX_AMOUNT) {
+    return res.status(400).json({ error: `Amount exceeds maximum of $${MAX_AMOUNT}` })
   }
 
   try {

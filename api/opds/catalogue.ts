@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { getPenNameById } from '../../src/data/catalogue.js'
+import { rateLimit } from '../_lib/rate-limit.js'
+import { setCors, handleOptions } from '../_lib/cors.js'
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -24,11 +26,15 @@ function imgMime(url: string): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCors(res)
+  if (!handleOptions(req, res)) return
   if (req.method !== 'GET') return res.status(405).end()
+  if (!rateLimit(req, res, { limit: 30, windowMs: 60 * 60_000, label: 'opds-catalogue' })) return
 
   const { data: books, error } = await supabase
     .from('books')
     .select('*')
+    .eq('available', true)
     .order('created_at', { ascending: true })
 
   if (error) {
@@ -49,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : null
     const coverType = coverUrl ? imgMime(coverUrl) : null
     const bookUrl = `${SITE}/books/${book.slug}`
-    const ebookAvailable = book.available && !!book.pdf_path
+    const ebookAvailable = !!book.pdf_path
 
     const coverLinks = coverUrl
       ? `    <link rel="http://opds-spec.org/image"
