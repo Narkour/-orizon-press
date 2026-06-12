@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { penNames } from '../data/catalogue'
 import { bustBooksCache } from '../hooks/useBooks'
+import { usePenNames, bustPenNamesCache } from '../hooks/usePenNames'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface BookRow {
@@ -8,6 +8,7 @@ interface BookRow {
   genre: string; available: boolean; pdf_path: string; epub_path: string | null
   cover_url: string; price: number; created_at: string
   audio_price?: number | null; audio_available?: boolean | null
+  description?: string | null; short_description?: string | null; tagline?: string | null
 }
 
 interface SegmentState {
@@ -53,6 +54,10 @@ function detectSegmentTitle(text: string, index: number): string {
     return firstLine
   }
   return `Segment ${index + 1}`
+}
+
+function clientSlugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 80)
 }
 
 interface GeneratedMetadata {
@@ -195,9 +200,7 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
     setExtracting(true)
     try {
       const buf = await file.arrayBuffer()
-      // Dynamic import: avoids bundling mammoth into the main chunk
       const mammothMod = await import('mammoth')
-      // Handle both named-export and default-export CJS interop patterns
       type ExtractFn = (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>
       const extractRawText: ExtractFn = (mammothMod as { extractRawText?: ExtractFn }).extractRawText
         ?? (mammothMod as { default?: { extractRawText?: ExtractFn } }).default?.extractRawText
@@ -304,7 +307,6 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
       </p>
 
       <div style={{ display: 'grid', gap: '1.25rem' }}>
-        {/* Book + voice */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <div>
             <label style={labelStyle}>Book</label>
@@ -321,7 +323,6 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
           </div>
         </div>
 
-        {/* DOCX upload */}
         {selectedSlug && (
           <div>
             <label style={labelStyle}>
@@ -338,7 +339,6 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
           </div>
         )}
 
-        {/* Segment list */}
         {segments.length > 0 && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
@@ -404,7 +404,6 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
           </div>
         )}
 
-        {/* Publish settings */}
         {selectedSlug && (
           <div style={{ padding: '1rem', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
             <div style={{ fontSize: '0.6rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '0.85rem' }}>
@@ -452,23 +451,23 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
 // ─── Distribution guides ──────────────────────────────────────────────────────
 const PLATFORMS = [
   {
-    name: 'Draft2Digital',
-    tagline: 'Upload once → distribute to Apple Books, Kobo, B&N, Scribd, Overdrive & more',
-    url: 'https://www.draft2digital.com',
+    name: 'StreetLib',
+    tagline: 'Free aggregator — reaches Apple Books, Kobo, Google Play, public libraries & more',
+    url: 'https://www.streetlib.com',
     recommended: true,
     steps: [
-      'Create a free account at draft2digital.com',
-      'Click "Add a Book" → upload your EPUB file and cover image (2560×1600 px minimum)',
-      'Fill in title, author, description, BISAC category, and price',
-      'Under "Channels", select Apple Books, Kobo, B&N Press, Scribd, and any others',
-      'Click Publish — Draft2Digital formats and delivers to all selected channels',
-      'Royalties: 70% of list price; D2D takes a 10% commission from your share',
-      'Reports and payments via D2D dashboard (monthly)',
+      'Create a free account at streetlib.com (no exclusivity required)',
+      'Click "New Title" → upload your EPUB file and cover image (minimum 1400×1400 px, RGB JPEG or PNG)',
+      'Fill in title, author name, description, language, ISBN (StreetLib can assign a free one), and price',
+      'Select your distribution channels: Apple Books, Kobo, Google Play Books, Baker & Taylor (libraries), Overdrive, and others',
+      'Click Publish — StreetLib validates and delivers to selected stores within 5–10 business days',
+      'Royalties: 80% of net proceeds on the free tier (StreetLib retains 20%)',
+      'Payments via PayPal or bank transfer on a quarterly basis',
     ],
   },
   {
     name: 'Apple Books',
-    tagline: 'Direct upload via iTunes Connect (skip if using Draft2Digital)',
+    tagline: 'Direct upload via iTunes Connect (skip if using StreetLib)',
     url: 'https://itunesconnect.apple.com',
     steps: [
       'Enroll as an Apple Books publisher at itunesconnect.apple.com → sign in with Apple ID',
@@ -521,7 +520,7 @@ function DistributionGuides() {
       <div style={{ ...eyebrowStyle, marginBottom: '0.5rem' }}>Distribution Guides</div>
       <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
         Step-by-step instructions for publishing your EPUBs on major retail platforms.
-        <strong style={{ color: 'var(--ink)' }}> Tip: start with Draft2Digital to reach all platforms in one upload.</strong>
+        <strong style={{ color: 'var(--ink)' }}> Tip: start with StreetLib to reach all platforms in one upload.</strong>
       </p>
 
       <div style={{ display: 'grid', gap: '0.75rem' }}>
@@ -750,6 +749,9 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
   const [genre, setGenre] = useState(book.genre)
   const [price, setPrice] = useState(String(book.price))
   const [available, setAvailable] = useState(book.available)
+  const [description, setDescription] = useState(book.description ?? '')
+  const [shortDescription, setShortDescription] = useState(book.short_description ?? '')
+  const [tagline, setTagline] = useState(book.tagline ?? '')
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState(book.cover_url || '')
   const [saving, setSaving] = useState(false)
@@ -774,7 +776,11 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
       const patchRes = await fetch('/api/admin/books', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
-        body: JSON.stringify({ slug: book.slug, title, author, genre, price: parseFloat(price), available }),
+        body: JSON.stringify({
+          slug: book.slug, title, author, genre,
+          price: parseFloat(price), available,
+          description, short_description: shortDescription, tagline,
+        }),
       })
       if (!patchRes.ok) {
         const data = await patchRes.json().catch(() => ({}))
@@ -797,7 +803,7 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
       }
 
       bustBooksCache()
-      onSaved({ title, author, genre, price: parseFloat(price), available, cover_url: newCoverUrl })
+      onSaved({ title, author, genre, price: parseFloat(price), available, description, short_description: shortDescription, tagline, cover_url: newCoverUrl })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
@@ -835,6 +841,24 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
           <label style={labelStyle}>Price ($)</label>
           <input style={inputStyle} type="number" min="0" step="0.01" value={price} onChange={e => setPrice(e.target.value)} required />
         </div>
+      </div>
+
+      <div style={{ marginBottom: '0.85rem' }}>
+        <label style={labelStyle}>Tagline</label>
+        <input style={inputStyle} value={tagline} onChange={e => setTagline(e.target.value)} placeholder="One-line tagline for the book" />
+      </div>
+      <div style={{ marginBottom: '0.85rem' }}>
+        <label style={labelStyle}>Short description</label>
+        <input style={inputStyle} value={shortDescription} onChange={e => setShortDescription(e.target.value)} placeholder="One sentence" />
+      </div>
+      <div style={{ marginBottom: '0.85rem' }}>
+        <label style={labelStyle}>Full description</label>
+        <textarea
+          style={{ ...inputStyle, height: 120, resize: 'vertical' }}
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          placeholder="Full catalogue description"
+        />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
@@ -886,85 +910,156 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
 }
 
 // ─── Book list ────────────────────────────────────────────────────────────────
-function BookList({ adminKey }: { adminKey: string }) {
+function BookList({ adminKey, refreshKey }: { adminKey: string; refreshKey: number }) {
   const [books, setBooks] = useState<BookRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState('')
   const [editingSlug, setEditingSlug] = useState<string | null>(null)
+  const [deletingSlug, setDeletingSlug] = useState<string | null>(null)
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true)
+    setFetchError('')
     fetch('/api/admin/books', { headers: { Authorization: `Bearer ${adminKey}` } })
       .then(r => r.json())
-      .then(data => setBooks(Array.isArray(data) ? data : []))
-      .catch(() => {})
+      .then(data => {
+        if (Array.isArray(data)) setBooks(data)
+        else setFetchError(data.error ?? 'Unexpected response from server')
+      })
+      .catch(() => setFetchError('Network error — could not load books'))
       .finally(() => setLoading(false))
-  }, [adminKey])
+  }
 
-  if (loading) return <p style={{ color: 'var(--mist)', fontSize: '0.82rem' }}>Loading books…</p>
+  useEffect(() => { load() }, [adminKey, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDelete = async (b: BookRow) => {
+    if (!window.confirm(`Delete "${b.title}"? This removes the book record and its files permanently.`)) return
+    setDeletingSlug(b.slug)
+    try {
+      const r = await fetch('/api/admin/books', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+        body: JSON.stringify({ slug: b.slug }),
+      })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        alert(d.error ?? 'Delete failed')
+        return
+      }
+      setBooks(prev => prev.filter(x => x.slug !== b.slug))
+      bustBooksCache()
+    } catch {
+      alert('Network error — delete failed')
+    } finally {
+      setDeletingSlug(null)
+    }
+  }
+
+  if (loading) return (
+    <div style={{ marginTop: '3rem' }}>
+      <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '1rem' }}>
+        Catalogue
+      </div>
+      <p style={{ color: 'var(--mist)', fontSize: '0.82rem' }}>Loading books…</p>
+    </div>
+  )
 
   return (
     <div style={{ marginTop: '3rem' }}>
-      <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '1rem' }}>
-        Catalogue — {books.length} titles
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+        <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--mist)' }}>
+          Catalogue — {books.length} title{books.length !== 1 ? 's' : ''}
+        </div>
+        <button
+          onClick={load}
+          style={{ fontSize: '0.62rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mist)', padding: 0, textDecoration: 'underline', fontFamily: 'var(--font-body)' }}
+        >
+          Refresh
+        </button>
       </div>
-      <div style={{ border: '1px solid var(--border)' }}>
-        {books.map((b, i) => (
-          <div key={b.id}>
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr auto auto auto auto',
-              gap: '0.75rem', alignItems: 'center',
-              padding: '0.75rem 1rem',
-              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-              background: editingSlug === b.slug ? 'rgba(0,0,0,0.02)' : 'var(--parchment)',
-            }}>
-              <div>
-                <span style={{ fontSize: '0.88rem', fontFamily: 'var(--font-display)' }}>{b.title}</span>
-                <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--mist)', marginTop: 2 }}>
-                  {b.author} · {b.genre}
-                </span>
-              </div>
-              <span style={{ fontSize: '0.68rem', color: b.pdf_path ? 'var(--gold)' : 'var(--mist)' }}>
-                {b.pdf_path ? 'PDF ✓' : 'No PDF'}
-              </span>
-              <span style={{ fontSize: '0.68rem', color: b.epub_path ? 'var(--gold)' : 'var(--mist)' }}>
-                {b.epub_path ? 'EPUB ✓' : 'No EPUB'}
-              </span>
-              <span style={{ fontSize: '0.68rem', color: b.available ? '#2e7d32' : '#c0392b' }}>
-                {b.available ? 'Live' : 'Hidden'}
-              </span>
-              <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0, alignItems: 'center' }}>
-                <a
-                  href={`/books/${b.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontSize: '0.68rem', color: 'var(--mist)', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                  onMouseOver={e => (e.currentTarget.style.color = 'var(--gold)')}
-                  onMouseOut={e => (e.currentTarget.style.color = 'var(--mist)')}
-                >
-                  View →
-                </a>
-                <button
-                  style={{ fontSize: '0.68rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mist)', padding: 0, textDecoration: 'underline', fontFamily: 'var(--font-body)' }}
-                  onClick={() => setEditingSlug(editingSlug === b.slug ? null : b.slug)}
-                >
-                  {editingSlug === b.slug ? 'Cancel' : 'Edit'}
-                </button>
-              </div>
-            </div>
 
-            {editingSlug === b.slug && (
-              <EditBookForm
-                book={b}
-                adminKey={adminKey}
-                onSaved={updates => {
-                  setBooks(prev => prev.map(x => x.slug === b.slug ? { ...x, ...updates } : x))
-                  setEditingSlug(null)
+      {fetchError && (
+        <div style={{ padding: '0.75rem 1rem', background: 'rgba(192,57,43,0.07)', border: '1px solid rgba(192,57,43,0.3)', fontSize: '0.82rem', color: '#c0392b', marginBottom: '1rem' }}>
+          {fetchError}
+        </div>
+      )}
+
+      {books.length === 0 && !fetchError && (
+        <p style={{ color: 'var(--mist)', fontSize: '0.82rem' }}>No books in catalogue yet.</p>
+      )}
+
+      {books.length > 0 && (
+        <div style={{ border: '1px solid var(--border)' }}>
+          {books.map((b, i) => (
+            <div key={b.id}>
+              <div
+                style={{
+                  display: 'grid', gridTemplateColumns: '1fr auto auto auto auto auto',
+                  gap: '0.75rem', alignItems: 'center',
+                  padding: '0.75rem 1rem',
+                  borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                  background: editingSlug === b.slug ? 'rgba(0,0,0,0.02)' : 'var(--parchment)',
+                  cursor: 'pointer',
                 }}
-                onCancel={() => setEditingSlug(null)}
-              />
-            )}
-          </div>
-        ))}
-      </div>
+                onClick={() => setEditingSlug(editingSlug === b.slug ? null : b.slug)}
+              >
+                <div>
+                  <span style={{ fontSize: '0.88rem', fontFamily: 'var(--font-display)' }}>{b.title}</span>
+                  <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--mist)', marginTop: 2 }}>
+                    {b.author} · {b.genre}
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.68rem', color: b.pdf_path ? 'var(--gold)' : 'var(--mist)' }}>
+                  {b.pdf_path ? 'PDF ✓' : 'No PDF'}
+                </span>
+                <span style={{ fontSize: '0.68rem', color: b.epub_path ? 'var(--gold)' : 'var(--mist)' }}>
+                  {b.epub_path ? 'EPUB ✓' : 'No EPUB'}
+                </span>
+                <span style={{ fontSize: '0.68rem', color: b.available ? '#2e7d32' : '#c0392b' }}>
+                  {b.available ? 'Live' : 'Hidden'}
+                </span>
+                <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                  <a
+                    href={`/books/${b.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: '0.68rem', color: 'var(--mist)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                    onMouseOver={e => (e.currentTarget.style.color = 'var(--gold)')}
+                    onMouseOut={e => (e.currentTarget.style.color = 'var(--mist)')}
+                  >
+                    View →
+                  </a>
+                  <button
+                    style={{ fontSize: '0.68rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mist)', padding: 0, textDecoration: 'underline', fontFamily: 'var(--font-body)' }}
+                    onClick={() => setEditingSlug(editingSlug === b.slug ? null : b.slug)}
+                  >
+                    {editingSlug === b.slug ? 'Cancel' : 'Edit'}
+                  </button>
+                  <button
+                    style={{ fontSize: '0.68rem', background: 'none', border: 'none', cursor: 'pointer', color: deletingSlug === b.slug ? 'var(--mist)' : '#c0392b', padding: 0, fontFamily: 'var(--font-body)' }}
+                    disabled={deletingSlug === b.slug}
+                    onClick={() => handleDelete(b)}
+                  >
+                    {deletingSlug === b.slug ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+
+              {editingSlug === b.slug && (
+                <EditBookForm
+                  book={b}
+                  adminKey={adminKey}
+                  onSaved={updates => {
+                    setBooks(prev => prev.map(x => x.slug === b.slug ? { ...x, ...updates } : x))
+                    setEditingSlug(null)
+                  }}
+                  onCancel={() => setEditingSlug(null)}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -977,10 +1072,14 @@ export default function Admin() {
   const [authed, setAuthed] = useState(false)
   const [authError, setAuthError] = useState('')
 
+  const { penNames } = usePenNames()
+
   // Fields
   const [title,        setTitle]        = useState('')
   const [authorVal,    setAuthorVal]    = useState('')
   const [penNameId,    setPenNameId]    = useState('')
+  const [newPenNameMode, setNewPenNameMode] = useState(false)
+  const [newPenNameName, setNewPenNameName] = useState('')
   const [genre,        setGenre]        = useState('')
   const [price,        setPrice]        = useState('9.99')
   const [file,         setFile]         = useState<File | null>(null)
@@ -995,10 +1094,10 @@ export default function Admin() {
   const [editedMeta, setEditedMeta] = useState<GeneratedMetadata | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [bookListKey, setBookListKey] = useState(0)
   const fileRef  = useRef<HTMLInputElement>(null)
   const coverRef = useRef<HTMLInputElement>(null)
 
-  // Verify admin password against API
   const handleAuth = async (pw: string) => {
     setAuthError('')
     const r = await fetch('/api/admin/books', {
@@ -1018,6 +1117,10 @@ export default function Admin() {
     e.preventDefault()
     if (!file || !title || !genre || !adminKey) return
 
+    const effectivePenNameId = newPenNameMode
+      ? clientSlugify(newPenNameName || authorVal)
+      : penNameId
+
     setStep('processing')
     setStage('extract')
     setErrMsg('')
@@ -1027,12 +1130,11 @@ export default function Admin() {
     form.append('file',       file)
     form.append('title',      title)
     form.append('author',     authorVal)
-    form.append('penNameId',  penNameId)
+    form.append('penNameId',  effectivePenNameId)
     form.append('genre',      genre)
     form.append('price',      price)
     if (coverFile) form.append('cover', coverFile)
 
-    // Simulate stage progression while waiting for the server
     const stages: ProcessStage[] = ['extract','ai','pdf','epub','upload','save']
     let si = 0
     const ticker = setInterval(() => {
@@ -1049,11 +1151,32 @@ export default function Admin() {
       clearInterval(ticker)
       const data = await r.json()
       if (!r.ok) throw new Error(data.error ?? `Server error ${r.status}`)
+
+      // Auto-create pen name profile if this is a new one
+      if (newPenNameMode && newPenNameName.trim()) {
+        const penSlug = clientSlugify(newPenNameName)
+        await fetch('/api/admin/pen-names', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+          body: JSON.stringify({
+            id: penSlug,
+            slug: penSlug,
+            name: newPenNameName.trim(),
+            bio: 'Bio coming soon.',
+            short_bio: 'A writer at Orizon Press.',
+            genres: genre ? [genre] : [],
+            accent_color: '#8B7355',
+          }),
+        }).catch(() => {})
+        bustPenNamesCache()
+      }
+
       setResult(data)
       setEditedMeta(data.metadata)
       setStage('done')
       setStep('result')
       bustBooksCache()
+      setBookListKey(k => k + 1)
     } catch (err) {
       clearInterval(ticker)
       setErrMsg(err instanceof Error ? err.message : 'Upload failed')
@@ -1091,8 +1214,9 @@ export default function Admin() {
 
   const reset = () => {
     setStep('idle'); setStage(null); setResult(null); setErrMsg('')
-    setTitle(''); setAuthorVal(''); setPenNameId(''); setGenre('')
-    setPrice('9.99'); setFile(null); setCoverFile(null); setCoverPreview('')
+    setTitle(''); setAuthorVal(''); setPenNameId('')
+    setNewPenNameMode(false); setNewPenNameName('')
+    setGenre(''); setPrice('9.99'); setFile(null); setCoverFile(null); setCoverPreview('')
     if (fileRef.current) fileRef.current.value = ''
     if (coverRef.current) coverRef.current.value = ''
   }
@@ -1204,10 +1328,41 @@ export default function Admin() {
             </div>
             <div>
               <label style={labelStyle}>Pen name</label>
-              <select style={inputStyle} value={penNameId} onChange={e => setPenNameId(e.target.value)}>
-                <option value="">— none —</option>
-                {penNames.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              {!newPenNameMode ? (
+                <select
+                  style={inputStyle}
+                  value={penNameId}
+                  onChange={e => {
+                    if (e.target.value === '__new__') {
+                      setNewPenNameMode(true)
+                      setPenNameId('')
+                    } else {
+                      setPenNameId(e.target.value)
+                    }
+                  }}
+                >
+                  <option value="">— select existing —</option>
+                  {penNames.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  <option value="__new__">+ Create new pen name…</option>
+                </select>
+              ) : (
+                <div style={{ display: 'grid', gap: '0.4rem' }}>
+                  <input
+                    style={inputStyle}
+                    value={newPenNameName}
+                    onChange={e => setNewPenNameName(e.target.value)}
+                    placeholder="New pen name (e.g. Sarah Rivers)"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    style={{ fontSize: '0.65rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mist)', padding: 0, textAlign: 'left', fontFamily: 'var(--font-body)', textDecoration: 'underline' }}
+                    onClick={() => { setNewPenNameMode(false); setNewPenNameName('') }}
+                  >
+                    ← Use existing pen name
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1308,8 +1463,8 @@ export default function Admin() {
         </div>
       )}
 
-      {/* ── Book list ── */}
-      {step === 'idle' && <BookList adminKey={adminKey!} />}
+      {/* ── Book list — always visible ── */}
+      {authed && <BookList adminKey={adminKey!} refreshKey={bookListKey} />}
 
       {/* ── Audiobook generation ── */}
       <AudiobookSection adminKey={adminKey!} />

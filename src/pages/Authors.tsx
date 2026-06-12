@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { penNames } from '../data/catalogue'
+import { usePenNames } from '../hooks/usePenNames'
 import { useBooks } from '../hooks/useBooks'
 
 export default function Authors() {
+  const { penNames } = usePenNames()
   const { books } = useBooks()
 
   return (
