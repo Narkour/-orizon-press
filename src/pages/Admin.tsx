@@ -85,11 +85,58 @@ const STAGE_LABELS: Record<ProcessStage, string> = {
 const STAGE_ORDER: ProcessStage[] = ['extract','ai','pdf','epub','upload','save','done']
 
 const GENRES = [
-  'African History', 'African Spirituality & Consciousness',
-  'Self-Help & Personal Growth', 'Science & Society',
-  'Literary Fiction', 'Historical Fiction',
-  'Religion & Spirituality', 'Spirituality & Consciousness',
+  // African
+  'African History',
+  'African Spirituality & Consciousness',
+  // Fiction
+  'Literary Fiction',
+  'Historical Fiction',
+  'Romance',
+  'Crime & Thriller',
+  'Mystery',
+  'Legal & Courtroom Drama',
+  'Science Fiction & Fantasy',
+  "Children's Fiction",
+  "Children's Books",
+  'Young Adult',
+  // Non-Fiction
+  'Self-Help & Personal Growth',
+  'Biography & Memoir',
+  'Health & Wellness',
+  'True Crime',
+  'Science & Society',
+  'Religion & Spirituality',
+  'Christian & Faith',
+  'Biblical Studies',
+  'Education & Textbooks',
+  'Metaphysics & Philosophy',
 ]
+
+function GenrePicker({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) {
+  const toggle = (g: string) =>
+    onChange(selected.includes(g) ? selected.filter(x => x !== g) : [...selected, g])
+
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
+      gap: '0.3rem', padding: '0.6rem 0.75rem',
+      border: '1px solid var(--border)', background: 'white',
+      maxHeight: 220, overflowY: 'auto',
+    }}>
+      {GENRES.map(g => (
+        <label key={g} style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', fontSize: '0.82rem', userSelect: 'none' }}>
+          <input
+            type="checkbox"
+            checked={selected.includes(g)}
+            onChange={() => toggle(g)}
+            style={{ flexShrink: 0 }}
+          />
+          {g}
+        </label>
+      ))}
+    </div>
+  )
+}
 
 // ─── Auth gate ────────────────────────────────────────────────────────────────
 function AuthGate({ onAuth, error }: { onAuth: (key: string) => void; error?: string }) {
@@ -746,7 +793,9 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
 }) {
   const [title, setTitle] = useState(book.title)
   const [author, setAuthor] = useState(book.author)
-  const [genre, setGenre] = useState(book.genre)
+  const [selectedGenres, setSelectedGenres] = useState<string[]>(
+    () => book.genre ? book.genre.split(',').map(g => g.trim()).filter(Boolean) : []
+  )
   const [price, setPrice] = useState(String(book.price))
   const [available, setAvailable] = useState(book.available)
   const [description, setDescription] = useState(book.description ?? '')
@@ -777,7 +826,8 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
         body: JSON.stringify({
-          slug: book.slug, title, author, genre,
+          slug: book.slug, title, author,
+          genre: selectedGenres.join(', '),
           price: parseFloat(price), available,
           description, short_description: shortDescription, tagline,
         }),
@@ -803,7 +853,7 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
       }
 
       bustBooksCache()
-      onSaved({ title, author, genre, price: parseFloat(price), available, description, short_description: shortDescription, tagline, cover_url: newCoverUrl })
+      onSaved({ title, author, genre: selectedGenres.join(', '), price: parseFloat(price), available, description, short_description: shortDescription, tagline, cover_url: newCoverUrl })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
@@ -832,15 +882,15 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
           <input style={inputStyle} value={author} onChange={e => setAuthor(e.target.value)} required />
         </div>
         <div>
-          <label style={labelStyle}>Genre</label>
-          <select style={inputStyle} value={genre} onChange={e => setGenre(e.target.value)}>
-            {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
-        </div>
-        <div>
           <label style={labelStyle}>Price ($)</label>
           <input style={inputStyle} type="number" min="0" step="0.01" value={price} onChange={e => setPrice(e.target.value)} required />
         </div>
+      </div>
+      <div style={{ marginBottom: '0.85rem' }}>
+        <label style={labelStyle}>
+          Genre{selectedGenres.length > 0 ? ` — ${selectedGenres.length} selected` : ' — select at least one'}
+        </label>
+        <GenrePicker selected={selectedGenres} onChange={setSelectedGenres} />
       </div>
 
       <div style={{ marginBottom: '0.85rem' }}>
@@ -1080,7 +1130,7 @@ export default function Admin() {
   const [penNameId,    setPenNameId]    = useState('')
   const [newPenNameMode, setNewPenNameMode] = useState(false)
   const [newPenNameName, setNewPenNameName] = useState('')
-  const [genre,        setGenre]        = useState('')
+  const [genres,       setGenres]       = useState<string[]>([])
   const [price,        setPrice]        = useState('9.99')
   const [file,         setFile]         = useState<File | null>(null)
   const [coverFile,    setCoverFile]    = useState<File | null>(null)
@@ -1115,7 +1165,7 @@ export default function Admin() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file || !title || !genre || !adminKey) return
+    if (!file || !title || genres.length === 0 || !adminKey) return
 
     const effectivePenNameId = newPenNameMode
       ? clientSlugify(newPenNameName || authorVal)
@@ -1131,7 +1181,7 @@ export default function Admin() {
     form.append('title',      title)
     form.append('author',     authorVal)
     form.append('penNameId',  effectivePenNameId)
-    form.append('genre',      genre)
+    form.append('genre',      genres.join(', '))
     form.append('price',      price)
     if (coverFile) form.append('cover', coverFile)
 
@@ -1165,7 +1215,7 @@ export default function Admin() {
             name: newPenNameName.trim(),
             bio: 'Bio coming soon.',
             short_bio: 'A writer at Orizon Press.',
-            genres: genre ? [genre] : [],
+            genres: genres.length > 0 ? genres : [],
             accent_color: '#8B7355',
           }),
         }).catch(() => {})
@@ -1217,7 +1267,7 @@ export default function Admin() {
     setStep('idle'); setStage(null); setResult(null); setErrMsg('')
     setTitle(''); setAuthorVal(''); setPenNameId('')
     setNewPenNameMode(false); setNewPenNameName('')
-    setGenre(''); setPrice('9.99'); setFile(null); setCoverFile(null); setCoverPreview('')
+    setGenres([]); setPrice('9.99'); setFile(null); setCoverFile(null); setCoverPreview('')
     if (fileRef.current) fileRef.current.value = ''
     if (coverRef.current) coverRef.current.value = ''
   }
@@ -1368,11 +1418,10 @@ export default function Admin() {
           </div>
 
           <div>
-            <label style={labelStyle}>Genre</label>
-            <select style={inputStyle} value={genre} onChange={e => setGenre(e.target.value)} required>
-              <option value="">— select genre —</option>
-              {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
+            <label style={labelStyle}>
+              Genre{genres.length > 0 ? ` — ${genres.length} selected` : ' — select at least one'}
+            </label>
+            <GenrePicker selected={genres} onChange={setGenres} />
           </div>
 
           <button type="submit" className="btn btn--primary" disabled={!file}>
