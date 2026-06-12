@@ -349,6 +349,171 @@ function DistributionGuides() {
   )
 }
 
+// ─── Lulu print-on-demand ─────────────────────────────────────────────────────
+const SUPABASE_PUBLIC = 'https://lyupqrxstrneczdbwrog.supabase.co/storage/v1/object/public'
+
+function LuluSection({ adminKey }: { adminKey: string }) {
+  const [books, setBooks] = useState<BookRow[]>([])
+  const [slug,     setSlug]     = useState('')
+  const [qty,      setQty]      = useState('1')
+  const [name,     setName]     = useState('')
+  const [street,   setStreet]   = useState('')
+  const [city,     setCity]     = useState('')
+  const [state,    setState_]   = useState('')
+  const [country,  setCountry]  = useState('US')
+  const [postcode, setPostcode] = useState('')
+  const [phone,    setPhone]    = useState('')
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<{ luluJobId: number; status: string; dashboardUrl: string } | null>(null)
+  const [errMsg, setErrMsg] = useState('')
+
+  useEffect(() => {
+    fetch('/api/admin/books', { headers: { Authorization: `Bearer ${adminKey}` } })
+      .then(r => r.json()).then(setBooks).catch(() => {})
+  }, [adminKey])
+
+  const selectedBook = books.find(b => b.slug === slug)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!selectedBook) return
+    setStatus('submitting'); setErrMsg(''); setResult(null)
+
+    const interiorPdfUrl = `${SUPABASE_PUBLIC}/ebooks/${selectedBook.pdf_path}`
+    const coverSourceUrl = selectedBook.cover_url || `${SUPABASE_PUBLIC}/covers/${selectedBook.slug}.png`
+
+    try {
+      const r = await fetch('/api/admin/lulu-create-pod', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+        body: JSON.stringify({
+          slug: selectedBook.slug, title: selectedBook.title,
+          interiorPdfUrl, coverSourceUrl,
+          quantity: qty,
+          shippingName: name, shippingStreet: street, shippingCity: city,
+          shippingState: state, shippingCountry: country,
+          shippingPostcode: postcode, shippingPhone: phone,
+        }),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error ?? `Error ${r.status}`)
+      setResult(data)
+      setStatus('done')
+    } catch (err) {
+      setErrMsg(err instanceof Error ? err.message : 'Failed')
+      setStatus('error')
+    }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '0.6rem 0.85rem', border: '1px solid var(--border)',
+    fontFamily: 'var(--font-body)', fontSize: '0.88rem', background: 'var(--parchment)',
+    boxSizing: 'border-box',
+  }
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: '0.62rem', letterSpacing: '0.14em',
+    textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '0.35rem',
+  }
+
+  return (
+    <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2.5rem' }}>
+      <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '0.5rem' }}>
+        Print on Demand — Lulu
+      </div>
+      <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
+        Order a physical proof copy of any book via Lulu. Uses the book's existing PDF as interior.
+        For a production-quality cover, upload a Lulu-spec cover PDF first. The cover image is used for proofing.
+      </p>
+
+      <form onSubmit={submit} style={{ display: 'grid', gap: '1.25rem' }}>
+        {status === 'error' && (
+          <div style={{ padding: '0.85rem 1rem', background: 'rgba(192,57,43,0.07)', border: '1px solid rgba(192,57,43,0.3)', fontSize: '0.82rem', color: '#c0392b' }}>
+            {errMsg}
+          </div>
+        )}
+        {status === 'done' && result && (
+          <div style={{ padding: '0.85rem 1rem', background: 'rgba(46,125,50,0.07)', border: '1px solid rgba(46,125,50,0.3)', fontSize: '0.82rem' }}>
+            ✓ Print job #{result.luluJobId} created — status: {result.status} ·{' '}
+            <a href={result.dashboardUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>
+              View in Lulu dashboard →
+            </a>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'end' }}>
+          <div>
+            <label style={labelStyle}>Book</label>
+            <select style={inputStyle} value={slug} onChange={e => setSlug(e.target.value)} required>
+              <option value="">— select book —</option>
+              {books.filter(b => b.pdf_path).map(b => (
+                <option key={b.slug} value={b.slug}>{b.title}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ width: 80 }}>
+            <label style={labelStyle}>Qty</label>
+            <input style={inputStyle} type="number" min="1" max="20" value={qty} onChange={e => setQty(e.target.value)} required />
+          </div>
+        </div>
+
+        {selectedBook && (
+          <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.03)', border: '1px solid var(--border)', fontSize: '0.78rem', color: 'var(--mist)' }}>
+            Interior PDF: <code style={{ color: 'var(--ink)' }}>{selectedBook.pdf_path}</code><br/>
+            Cover source: <code style={{ color: 'var(--ink)' }}>{selectedBook.slug}.png</code>
+            <span style={{ marginLeft: 8, color: 'var(--gold)' }}>⚠ Use a Lulu-spec cover PDF for production orders</span>
+          </div>
+        )}
+
+        <div style={{ fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)', marginTop: '0.5rem' }}>
+          Shipping address
+        </div>
+
+        <div>
+          <label style={labelStyle}>Full name</label>
+          <input style={inputStyle} value={name} onChange={e => setName(e.target.value)} required placeholder="Recipient name" />
+        </div>
+        <div>
+          <label style={labelStyle}>Street address</label>
+          <input style={inputStyle} value={street} onChange={e => setStreet(e.target.value)} required placeholder="123 Main Street" />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+          <div>
+            <label style={labelStyle}>City</label>
+            <input style={inputStyle} value={city} onChange={e => setCity(e.target.value)} required />
+          </div>
+          <div>
+            <label style={labelStyle}>State / Province</label>
+            <input style={inputStyle} value={state} onChange={e => setState_(e.target.value)} required placeholder="NY" />
+          </div>
+          <div>
+            <label style={labelStyle}>Postcode</label>
+            <input style={inputStyle} value={postcode} onChange={e => setPostcode(e.target.value)} required />
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div>
+            <label style={labelStyle}>Country code</label>
+            <input style={inputStyle} value={country} onChange={e => setCountry(e.target.value.toUpperCase())} required placeholder="US" maxLength={2} />
+          </div>
+          <div>
+            <label style={labelStyle}>Phone (optional)</label>
+            <input style={inputStyle} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 555 000 0000" />
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          className="btn btn--primary"
+          disabled={status === 'submitting' || !slug || !name || !street || !city || !state || !postcode}
+          style={{ maxWidth: 240 }}
+        >
+          {status === 'submitting' ? 'Submitting to Lulu…' : 'Order print copy'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 // ─── Book list ────────────────────────────────────────────────────────────────
 function BookList({ adminKey }: { adminKey: string }) {
   const [books, setBooks] = useState<BookRow[]>([])
@@ -692,6 +857,9 @@ export default function Admin() {
 
       {/* ── Audiobook generation ── */}
       <AudiobookSection adminKey={adminKey!} />
+
+      {/* ── Lulu print-on-demand ── */}
+      <LuluSection adminKey={adminKey!} />
 
       {/* ── Distribution guides ── */}
       <DistributionGuides />
