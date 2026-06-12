@@ -1,6 +1,7 @@
 import { useParams, Link, Navigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { getPostBySlug } from '../data/blog'
+import ShareButtons from '../components/ShareButtons'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -130,6 +131,13 @@ export default function BlogPost() {
               color: 'var(--ink)',
             }}
           />
+
+          <div style={{ marginTop: '3rem' }}>
+            <ShareButtons
+              url={`https://orizonpress.com/blog/${post.slug}`}
+              text={`${post.title} — Orizon Press`}
+            />
+          </div>
 
           {/* Footer */}
           <footer style={{ marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid var(--border)' }}>

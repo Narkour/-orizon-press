@@ -44,7 +44,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     pdf_path: string; price: number;
   }) => {
     const author = getPenNameById(book.pen_name_id)
-    const coverUrl = book.cover_url || null
+    const coverUrl = book.cover_url
+      ? (book.cover_url.startsWith('/') ? `${SITE}${book.cover_url}` : book.cover_url)
+      : null
     const coverType = coverUrl ? imgMime(coverUrl) : null
     const bookUrl = `${SITE}/books/${book.slug}`
     const ebookAvailable = book.available && !!book.pdf_path

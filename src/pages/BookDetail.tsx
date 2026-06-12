@@ -432,9 +432,9 @@ export default function BookDetail() {
           ← Back to Catalogue
         </Link>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: '4rem', alignItems: 'start' }}>
+        <div className="book-detail-grid">
           {/* Cover + Buy */}
-          <div style={{ position: 'sticky', top: 'calc(var(--nav-height) + 2rem)' }}>
+          <div className="book-detail-cover-col">
             <div style={{ aspectRatio: '2/3', background: book.coverColor, position: 'relative', overflow: 'hidden', marginBottom: '1.5rem', boxShadow: 'var(--shadow-mid)' }}>
               {book.coverImage ? (
                 <img

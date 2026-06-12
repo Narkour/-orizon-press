@@ -1,18 +1,19 @@
 import { Outlet, NavLink, Link, useLocation } from 'react-router-dom'
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { books } from '../data/catalogue'
+import { useBooks } from '../hooks/useBooks'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function Layout() {
   const [scrolled, setScrolled] = useState(false)
-  const [, setMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, signOut } = useAuth()
+  const { books } = useBooks()
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40)
@@ -38,7 +39,7 @@ export default function Layout() {
       b.genre.toLowerCase().includes(q) ||
       b.description.toLowerCase().includes(q)
     ).slice(0, 6)
-  }, [query])
+  }, [query, books])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -56,7 +57,7 @@ export default function Layout() {
             <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 500, color: 'var(--ink)', letterSpacing: '0.01em' }}>Orizon Press</span>
           </Link>
 
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '2rem' }} className="desktop-nav">
+          <nav className="desktop-nav">
             {['catalogue','authors','blog','about','contact'].map(path => (
               <NavLink key={path} to={`/${path}`} style={({ isActive }) => ({
                 fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase',
@@ -109,7 +110,7 @@ export default function Layout() {
             )}
           </nav>
 
-          <div ref={searchRef} style={{ position: 'relative' }}>
+          <div ref={searchRef} className="desktop-search" style={{ position: 'relative' }}>
             <input
               type="search"
               placeholder="Search titles…"
@@ -151,8 +152,124 @@ export default function Layout() {
               </ul>
             )}
           </div>
+
+          <button
+            className="mobile-menu-btn"
+            onClick={() => setMenuOpen(o => !o)}
+            aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          >
+            {menuOpen ? '✕' : '☰'}
+          </button>
         </div>
       </header>
+
+      {menuOpen && (
+        <div className="mobile-nav-overlay">
+          <div style={{ padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
+              <input
+                type="search"
+                placeholder="Search titles…"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: '0.9rem',
+                  padding: '0.6rem 1rem', width: '100%',
+                  border: '1px solid var(--border)', background: 'white',
+                  color: 'var(--ink)', outline: 'none',
+                }}
+                onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+                onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+              />
+              {query && results.length > 0 && (
+                <ul style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200, marginTop: '2px',
+                  background: 'var(--cream)', border: '1px solid var(--border)',
+                  boxShadow: 'var(--shadow-mid)', listStyle: 'none', maxHeight: '200px', overflowY: 'auto',
+                }}>
+                  {results.map(b => (
+                    <li key={b.slug}>
+                      <button onClick={() => { navigate(`/books/${b.slug}`); setQuery(''); setMenuOpen(false) }}
+                        style={{
+                          width: '100%', padding: '0.6rem 0.9rem', textAlign: 'left',
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                      >
+                        <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.9rem', color: 'var(--ink)' }}>{b.title}</div>
+                        <div style={{ fontSize: '0.6rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', marginTop: '2px' }}>{b.genre}</div>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {['catalogue','authors','blog','about','contact'].map(path => (
+              <NavLink
+                key={path}
+                to={`/${path}`}
+                onClick={() => setMenuOpen(false)}
+                style={({ isActive }) => ({
+                  display: 'block', padding: '1rem 0',
+                  fontFamily: 'var(--font-display)', fontSize: '1.15rem',
+                  color: isActive ? 'var(--gold)' : 'var(--ink)',
+                  textDecoration: 'none', borderBottom: '1px solid var(--border)',
+                })}
+              >
+                {path.charAt(0).toUpperCase() + path.slice(1)}
+              </NavLink>
+            ))}
+
+            <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {user ? (
+                <>
+                  <NavLink to="/my-library" onClick={() => setMenuOpen(false)} style={({ isActive }) => ({
+                    display: 'block', padding: '0.75rem 0',
+                    fontSize: '0.8rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+                    color: isActive ? 'var(--gold)' : 'var(--mist)', textDecoration: 'none',
+                  })}>
+                    My Library
+                  </NavLink>
+                  {user.email === 'jnartey79@gmail.com' && (
+                    <a href="/admin" onClick={() => setMenuOpen(false)} style={{
+                      display: 'block', padding: '0.75rem 0',
+                      fontSize: '0.8rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+                      color: 'var(--gold)', textDecoration: 'none',
+                    }}>
+                      Admin Dashboard
+                    </a>
+                  )}
+                  <button onClick={async () => { await signOut(); navigate('/'); setMenuOpen(false) }} style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: '0.75rem 0',
+                    fontSize: '0.8rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+                    color: 'var(--mist)', textAlign: 'left', width: '100%',
+                  }}>
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <NavLink to="/signin" onClick={() => setMenuOpen(false)} style={({ isActive }) => ({
+                    display: 'block', padding: '0.75rem 0',
+                    fontSize: '0.8rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+                    color: isActive ? 'var(--gold)' : 'var(--mist)', textDecoration: 'none',
+                  })}>
+                    Sign In
+                  </NavLink>
+                  <NavLink to="/signup" onClick={() => setMenuOpen(false)} style={({ isActive }) => ({
+                    display: 'block', padding: '0.75rem 0',
+                    fontSize: '0.8rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+                    color: isActive ? 'var(--gold)' : 'var(--mist)', textDecoration: 'none',
+                  })}>
+                    Create Account
+                  </NavLink>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <main style={{ flex: 1, paddingTop: 'var(--nav-height)' }}>
         <Outlet />
