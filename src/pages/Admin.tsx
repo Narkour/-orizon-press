@@ -1155,10 +1155,11 @@ export default function Admin() {
       // Auto-create pen name profile if this is a new one
       if (newPenNameMode && newPenNameName.trim()) {
         const penSlug = clientSlugify(newPenNameName)
-        await fetch('/api/admin/pen-names', {
+        await fetch('/api/admin/books', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
           body: JSON.stringify({
+            resource: 'pen-name',
             id: penSlug,
             slug: penSlug,
             name: newPenNameName.trim(),

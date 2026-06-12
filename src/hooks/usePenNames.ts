@@ -29,7 +29,7 @@ let inflight: Promise<PenName[]> | null = null
 
 async function loadPenNames(): Promise<PenName[]> {
   try {
-    const res = await fetch('/api/pen-names')
+    const res = await fetch('/api/books?resource=pen-names')
     if (!res.ok) return staticPenNames
     const rows: DbPenName[] = await res.json()
     if (!Array.isArray(rows) || rows.length === 0) return staticPenNames

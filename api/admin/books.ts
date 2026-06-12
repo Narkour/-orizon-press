@@ -11,6 +11,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireAdmin(req, res)) return
 
   if (req.method === 'GET') {
+    if (req.query.resource === 'pen-names') {
+      const { data, error } = await supabase
+        .from('pen_names')
+        .select('id, slug, name, bio, short_bio, genres, accent_color')
+        .order('name')
+      if (error) return res.status(500).json({ error: error.message })
+      return res.status(200).json(data ?? [])
+    }
+
     const { data, error } = await supabase
       .from('books')
       .select('id, slug, title, author, genre, available, pdf_path, epub_path, cover_url, price, created_at, audio_price, audio_available, audio_chapters, description, short_description, tagline')
@@ -28,6 +37,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .from('books')
       .update(updates)
       .eq('slug', slug)
+      .select()
+      .single()
+
+    if (error) return res.status(500).json({ error: error.message })
+    return res.status(200).json(data)
+  }
+
+  // Pen-name upsert: POST /api/admin/books  { resource:'pen-name', id, slug, name, ... }
+  if (req.method === 'POST') {
+    const { resource, id, slug, name, bio, short_bio, genres, accent_color } = req.body ?? {}
+    if (resource !== 'pen-name') return res.status(400).json({ error: 'resource must be pen-name' })
+    if (!id || !slug || !name) return res.status(400).json({ error: 'id, slug, name required' })
+
+    const { data, error } = await supabase
+      .from('pen_names')
+      .upsert(
+        {
+          id, slug, name,
+          bio: bio || 'Bio coming soon.',
+          short_bio: short_bio || 'A writer at Orizon Press.',
+          genres: genres || [],
+          accent_color: accent_color || '#8B7355',
+        },
+        { onConflict: 'id' }
+      )
       .select()
       .single()
 
