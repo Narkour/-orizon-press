@@ -49,7 +49,7 @@ export default function MyLibrary() {
   const handleDownload = async (bookSlug: string) => {
     setDownloadState(prev => ({ ...prev, [bookSlug]: 'loading' }))
     try {
-      const tokenRes = await fetch('/api/request-redownload', {
+      const tokenRes = await fetch('/api/my-library', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
