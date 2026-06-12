@@ -4,7 +4,9 @@ import { Helmet } from 'react-helmet-async'
 import { getPenNameById, type Book } from '../data/catalogue'
 import BookCard from '../components/BookCard'
 import ShareButtons from '../components/ShareButtons'
+import ReviewSection from '../components/ReviewSection'
 import { useBooks } from '../hooks/useBooks'
+import { useAuth } from '../contexts/AuthContext'
 
 // ─── PayPal SDK browser global ────────────────────────────────────────────────
 declare global {
@@ -23,6 +25,82 @@ declare global {
 
 // PayPal client IDs are public by design — safe to embed in browser code
 const PAYPAL_CLIENT_ID = import.meta.env.VITE_PAYPAL_CLIENT_ID
+
+// ─── Sample preview modal ─────────────────────────────────────────────────────
+function SampleModal({ book, onClose, onBuy }: { book: Book; onClose: () => void; onBuy: () => void }) {
+  return (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        background: 'rgba(26, 20, 16, 0.65)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1rem', backdropFilter: 'blur(2px)',
+      }}
+    >
+      <div style={{
+        position: 'relative', width: '100%', maxWidth: 660,
+        background: 'var(--parchment)',
+        boxShadow: '0 20px 60px rgba(26, 20, 16, 0.3)',
+        maxHeight: '88vh', display: 'flex', flexDirection: 'column',
+      }}>
+        <div style={{ padding: '1.5rem 2rem 1rem', borderBottom: '1px solid var(--border)', flexShrink: 0, position: 'relative' }}>
+          <span className="eyebrow" style={{ marginBottom: '0.3rem' }}>Sample</span>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 400 }}>
+            {book.title}
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              position: 'absolute', top: 12, right: 14,
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '1.3rem', color: 'var(--mist)', padding: '4px 8px', lineHeight: 1,
+              transition: 'color var(--duration)',
+            }}
+            onMouseOver={e => (e.currentTarget.style.color = 'var(--ink)')}
+            onMouseOut={e => (e.currentTarget.style.color = 'var(--mist)')}
+          >×</button>
+        </div>
+
+        <div style={{ padding: '1.75rem 2rem', overflowY: 'auto', flex: 1 }}>
+          {book.sampleText?.split('\n').filter(p => p.trim()).map((p, i) => (
+            <p key={i} style={{
+              fontFamily: 'var(--font-display)', fontSize: '1rem', lineHeight: 1.9,
+              color: 'var(--ink)', marginBottom: '1.3rem',
+            }}>
+              {p}
+            </p>
+          ))}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '0.85rem', color: 'var(--mist)' }}>
+              — End of sample —
+            </p>
+          </div>
+        </div>
+
+        <div style={{
+          padding: '1rem 2rem', borderTop: '1px solid var(--border)', flexShrink: 0,
+          display: 'flex', gap: '0.75rem', alignItems: 'center',
+        }}>
+          <button className="btn btn--primary" onClick={onBuy} style={{ fontSize: '0.72rem' }}>
+            Buy eBook — ${book.ebook.price.toFixed(2)}
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+              fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: 'var(--mist)',
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ─── Purchase modal ───────────────────────────────────────────────────────────
 type Step = 'email' | 'paypal' | 'processing' | 'success' | 'error'
@@ -394,7 +472,9 @@ function EbookPurchaseModal({ book, onClose }: { book: Book; onClose: () => void
 export default function BookDetail() {
   const { slug } = useParams<{ slug: string }>()
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
+  const [showSampleModal, setShowSampleModal] = useState(false)
   const { books, loading } = useBooks()
+  const { user } = useAuth()
 
   if (loading) {
     return (
@@ -409,6 +489,10 @@ export default function BookDetail() {
 
   const author = getPenNameById(book.penNameId)
   const moreBooks = books.filter(b => b.penNameId === book.penNameId && b.id !== book.id).slice(0, 4)
+  const moreBooksIds = new Set(moreBooks.map(b => b.id))
+  const similarBooks = books
+    .filter(b => b.genre === book.genre && b.id !== book.id && !moreBooksIds.has(b.id))
+    .slice(0, 3)
   const accent = book.coverAccent ?? '#c8911f'
 
   return (
@@ -461,20 +545,31 @@ export default function BookDetail() {
                 Get This Book
               </div>
               {book.ebook.available && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 0', borderTop: '1px solid var(--border)' }}>
-                  <div>
-                    <span style={{ display: 'block', fontSize: '0.68rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mist)' }}>eBook</span>
-                    <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: 'var(--gold)', lineHeight: 1, marginTop: 2, display: 'block' }}>
-                      ${book.ebook.price.toFixed(2)}
-                    </span>
+                <div style={{ padding: '0.8rem 0', borderTop: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: book.sampleText ? '0.6rem' : 0 }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '0.68rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mist)' }}>eBook</span>
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: 'var(--gold)', lineHeight: 1, marginTop: 2, display: 'block' }}>
+                        ${book.ebook.price.toFixed(2)}
+                      </span>
+                    </div>
+                    <button
+                      className="btn btn--primary"
+                      style={{ fontSize: '0.68rem' }}
+                      onClick={() => setShowPurchaseModal(true)}
+                    >
+                      Buy eBook
+                    </button>
                   </div>
-                  <button
-                    className="btn btn--primary"
-                    style={{ fontSize: '0.68rem' }}
-                    onClick={() => setShowPurchaseModal(true)}
-                  >
-                    Buy eBook
-                  </button>
+                  {book.sampleText && (
+                    <button
+                      className="btn btn--outline"
+                      style={{ width: '100%', fontSize: '0.68rem', marginTop: '0.25rem' }}
+                      onClick={() => setShowSampleModal(true)}
+                    >
+                      Read Sample
+                    </button>
+                  )}
                 </div>
               )}
               {book.print.available && (
@@ -554,6 +649,8 @@ export default function BookDetail() {
               url={`https://orizonpress.com/books/${book.slug}`}
               text={`"${book.title}"${author ? ` by ${author.name}` : ''} — Orizon Press`}
             />
+
+            <ReviewSection bookSlug={book.slug} userEmail={user?.email ?? null} />
           </div>
         </div>
 
@@ -570,7 +667,30 @@ export default function BookDetail() {
             </div>
           </div>
         )}
+
+        {/* You Might Also Like */}
+        {similarBooks.length > 0 && (
+          <div style={{ marginTop: '5rem', paddingTop: '3rem', borderTop: '1px solid var(--border)' }}>
+            <div style={{ marginBottom: '2.5rem' }}>
+              <span className="rule" />
+              <span className="eyebrow" style={{ marginBottom: '0.5rem' }}>You Might Also Like</span>
+              <h2 style={{ marginTop: '0.4rem' }}>{book.genre}</h2>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '3rem 1.5rem' }}>
+              {similarBooks.map((b, i) => <BookCard key={b.id} book={b} index={i} />)}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Sample modal */}
+      {showSampleModal && (
+        <SampleModal
+          book={book}
+          onClose={() => setShowSampleModal(false)}
+          onBuy={() => { setShowSampleModal(false); setShowPurchaseModal(true) }}
+        />
+      )}
 
       {/* Purchase modal */}
       {showPurchaseModal && (

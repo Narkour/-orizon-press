@@ -702,7 +702,20 @@ export default function Admin() {
   return (
     <div style={{ padding: '3rem 2rem 6rem', maxWidth: 760, margin: '0 auto' }}>
       <div style={{ marginBottom: '2.5rem' }}>
-        <span className="eyebrow">Orizon Press</span>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+          <span className="eyebrow">Orizon Press</span>
+          <a
+            href="/"
+            style={{
+              fontSize: '0.68rem', letterSpacing: '0.12em', textTransform: 'uppercase',
+              color: 'var(--mist)', textDecoration: 'none', transition: 'color var(--duration)',
+            }}
+            onMouseOver={e => (e.currentTarget.style.color = 'var(--gold)')}
+            onMouseOut={e => (e.currentTarget.style.color = 'var(--mist)')}
+          >
+            ← Back to Site
+          </a>
+        </div>
         <h1 style={{ marginTop: '0.4rem' }}>Admin Dashboard</h1>
         <p style={{ color: 'var(--mist)', fontSize: '0.82rem' }}>
           Upload a .docx manuscript → Claude generates metadata → PDF + EPUB created → saved to catalogue.

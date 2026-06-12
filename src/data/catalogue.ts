@@ -106,6 +106,7 @@ export interface Book {
   ebook: BookFormat;
   print: BookFormat;
   reviews?: { text: string; source: string }[];
+  sampleText?: string;
 }
 
 // ============================================

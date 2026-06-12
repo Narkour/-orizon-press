@@ -13,6 +13,7 @@ export interface DbBook {
   pdf_path: string
   price: number
   available: boolean
+  sample_text: string | null
   created_at: string
   updated_at: string
 }
@@ -33,6 +34,7 @@ export function mapBook(row: DbBook): Book {
       price: Number(row.price),
     },
     print: { available: true, price: 16.99 },
+    sampleText: row.sample_text ?? undefined,
   }
 }
 
