@@ -26,26 +26,26 @@ export default function Authors() {
           </p>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(340px, 1fr))', gap:'1.25rem' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'1rem' }}>
           {penNames.map((author, i) => {
             const authorBooks = books.filter(b => b.penNameId === author.id)
             return (
               <Link key={author.id} to={`/authors/${author.slug}`}
                 className="fade-up" style={{ animationDelay:`${i*0.12}s`,
-                  display:'flex', flexDirection:'column', gap:'1.25rem',
-                  padding:'1.75rem', border:'1px solid var(--border)',
+                  display:'flex', flexDirection:'column', gap:'1rem',
+                  padding:'1.25rem', border:'1px solid var(--border)',
                   background:'var(--parchment)', textDecoration:'none',
                   transition:'all var(--duration) var(--ease)',
                 }}
                 onMouseOver={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--border-gold)'; (e.currentTarget as HTMLElement).style.boxShadow='var(--shadow-mid)'; (e.currentTarget as HTMLElement).style.transform='translateY(-2px)' }}
                 onMouseOut={e => { (e.currentTarget as HTMLElement).style.borderColor='var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow='none'; (e.currentTarget as HTMLElement).style.transform='translateY(0)' }}
               >
-                <div style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
-                  <div style={{ width:64, height:64, borderRadius:'50%', flexShrink:0, background:author.accentColor, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-display)', fontSize:'1.8rem', color:'var(--parchment)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'0.85rem' }}>
+                  <div style={{ width:52, height:52, borderRadius:'50%', flexShrink:0, background:author.accentColor, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--font-display)', fontSize:'1.5rem', color:'var(--parchment)' }}>
                     {author.name.charAt(0)}
                   </div>
                   <div>
-                    <h2 style={{ fontSize:'1.3rem', marginBottom:'0.15rem' }}>{author.name}</h2>
+                    <h2 style={{ fontSize:'1.1rem', marginBottom:'0.15rem' }}>{author.name}</h2>
                     <span style={{ fontSize:'0.62rem', letterSpacing:'0.14em', textTransform:'uppercase', color:'var(--gold)' }}>
                       {authorBooks.length} title{authorBooks.length !== 1 ? 's' : ''}
                     </span>

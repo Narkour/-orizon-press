@@ -2,6 +2,7 @@ import { Outlet, NavLink, Link, useLocation } from 'react-router-dom'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { books } from '../data/catalogue'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Layout() {
   const [scrolled, setScrolled] = useState(false)
@@ -11,6 +12,7 @@ export default function Layout() {
   const searchRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
+  const { user, signOut } = useAuth()
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40)
@@ -64,6 +66,37 @@ export default function Layout() {
                 {path.charAt(0).toUpperCase() + path.slice(1)}
               </NavLink>
             ))}
+            {user ? (
+              <>
+                <NavLink to="/my-library" style={({ isActive }) => ({
+                  fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase',
+                  color: isActive ? 'var(--gold)' : 'var(--mist)', transition: 'color var(--duration)',
+                  textDecoration: 'none',
+                })}>
+                  My Library
+                </NavLink>
+                <button
+                  onClick={async () => { await signOut(); navigate('/') }}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                    fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase',
+                    color: 'var(--mist)', transition: 'color var(--duration)',
+                  }}
+                  onMouseOver={e => (e.currentTarget.style.color = 'var(--ink)')}
+                  onMouseOut={e => (e.currentTarget.style.color = 'var(--mist)')}
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <NavLink to="/signin" style={({ isActive }) => ({
+                fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase',
+                color: isActive ? 'var(--gold)' : 'var(--mist)', transition: 'color var(--duration)',
+                textDecoration: 'none',
+              })}>
+                Sign In
+              </NavLink>
+            )}
           </nav>
 
           <div ref={searchRef} style={{ position: 'relative' }}>
@@ -139,6 +172,14 @@ export default function Layout() {
                   </Link>
                 </div>
               ))}
+              <div style={{ marginBottom: '0.6rem' }}>
+                <Link to="/my-library" style={{ fontSize: '0.85rem', color: 'rgba(244,239,230,0.6)', transition: 'color var(--duration)' }}
+                  onMouseOver={e => (e.currentTarget.style.color = 'var(--parchment)')}
+                  onMouseOut={e => (e.currentTarget.style.color = 'rgba(244,239,230,0.6)')}
+                >
+                  My Library
+                </Link>
+              </div>
             </div>
             <div>
               <div style={{ fontSize: '0.62rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '1rem' }}>Connect</div>

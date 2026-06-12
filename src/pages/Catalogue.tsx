@@ -89,9 +89,9 @@ export default function Catalogue() {
 
               {/* Grouped genre rows */}
               {genreGroups.map(group => (
-                <div key={group.label} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-                  <span style={groupLabelStyle}>{group.label}</span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                <div key={group.label} className="genre-filter-group">
+                  <span className="genre-filter-group-label">{group.label}</span>
+                  <div className="genre-filter-group-pills">
                     {group.genres.map(g => (
                       <button
                         key={g}

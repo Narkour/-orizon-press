@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { getAllGenres } from '../data/catalogue';
 import BookCard from '../components/BookCard';
+import ShareButtons from '../components/ShareButtons';
 import { useBooks } from '../hooks/useBooks';
 
 export default function Home() {
@@ -109,6 +110,15 @@ export default function Home() {
           {genres.map(g => (
             <Link key={g} to={`/catalogue?genre=${g}`} style={{ fontSize: '0.85rem', color: 'var(--ink)', textDecoration: 'none' }}>{g}</Link>
           ))}
+        </div>
+      </section>
+
+      <section style={{ padding: '3rem 2rem', background: 'var(--cream)' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <ShareButtons
+            url="https://orizonpress.com"
+            text="Orizon Press — Independent publisher of African history, consciousness, spirituality, and literary fiction"
+          />
         </div>
       </section>
     </div>
