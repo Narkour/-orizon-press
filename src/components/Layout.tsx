@@ -75,6 +75,16 @@ export default function Layout() {
                 })}>
                   My Library
                 </NavLink>
+                {user.email === 'jnartey79@gmail.com' && (
+                  <a href="/admin" style={{
+                    fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase',
+                    color: 'var(--gold)', textDecoration: 'none', transition: 'color var(--duration)',
+                  }}
+                  onMouseOver={e => (e.currentTarget.style.color = 'var(--ink)')}
+                  onMouseOut={e => (e.currentTarget.style.color = 'var(--gold)')}>
+                    Admin
+                  </a>
+                )}
                 <button
                   onClick={async () => { await signOut(); navigate('/') }}
                   style={{

@@ -107,19 +107,36 @@ export default function MyLibrary() {
               {user?.email}
             </p>
           </div>
-          <button
-            onClick={handleSignOut}
-            style={{
-              background: 'none', border: '1px solid var(--border)', cursor: 'pointer',
-              fontSize: '0.68rem', letterSpacing: '0.12em', textTransform: 'uppercase',
-              color: 'var(--mist)', padding: '0.5rem 1rem', marginTop: '2rem',
-              transition: 'color var(--duration), border-color var(--duration)',
-            }}
-            onMouseOver={e => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.borderColor = 'var(--ink)' }}
-            onMouseOut={e => { e.currentTarget.style.color = 'var(--mist)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-          >
-            Sign Out
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '2rem', flexWrap: 'wrap' }}>
+            {user?.email === 'jnartey79@gmail.com' && (
+              <a
+                href="/admin"
+                style={{
+                  fontSize: '0.68rem', letterSpacing: '0.12em', textTransform: 'uppercase',
+                  color: 'var(--parchment)', background: 'var(--gold)',
+                  padding: '0.5rem 1rem', textDecoration: 'none',
+                  transition: 'background var(--duration)',
+                }}
+                onMouseOver={e => (e.currentTarget.style.background = 'var(--ink)')}
+                onMouseOut={e => (e.currentTarget.style.background = 'var(--gold)')}
+              >
+                Admin Dashboard →
+              </a>
+            )}
+            <button
+              onClick={handleSignOut}
+              style={{
+                background: 'none', border: '1px solid var(--border)', cursor: 'pointer',
+                fontSize: '0.68rem', letterSpacing: '0.12em', textTransform: 'uppercase',
+                color: 'var(--mist)', padding: '0.5rem 1rem',
+                transition: 'color var(--duration), border-color var(--duration)',
+              }}
+              onMouseOver={e => { e.currentTarget.style.color = 'var(--ink)'; e.currentTarget.style.borderColor = 'var(--ink)' }}
+              onMouseOut={e => { e.currentTarget.style.color = 'var(--mist)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
 
         {ordersLoading ? (
