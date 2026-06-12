@@ -496,15 +496,15 @@ function LuluSection({ adminKey }: { adminKey: string }) {
             <input style={inputStyle} value={country} onChange={e => setCountry(e.target.value.toUpperCase())} required placeholder="US" maxLength={2} />
           </div>
           <div>
-            <label style={labelStyle}>Phone (optional)</label>
-            <input style={inputStyle} value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 555 000 0000" />
+            <label style={labelStyle}>Phone</label>
+            <input style={inputStyle} value={phone} onChange={e => setPhone(e.target.value)} required placeholder="+1 555 000 0000" />
           </div>
         </div>
 
         <button
           type="submit"
           className="btn btn--primary"
-          disabled={status === 'submitting' || !slug || !name || !street || !city || !state || !postcode}
+          disabled={status === 'submitting' || !slug || !name || !street || !city || !state || !postcode || !phone}
           style={{ maxWidth: 240 }}
         >
           {status === 'submitting' ? 'Submitting to Lulu…' : 'Order print copy'}

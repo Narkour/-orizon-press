@@ -61,14 +61,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     podPackageId,
     quantity = 1,
     shippingName, shippingStreet, shippingCity,
-    shippingState, shippingCountry = 'US', shippingPostcode, shippingPhone = '',
+    shippingState, shippingCountry = 'US', shippingPostcode, shippingPhone,
   } = req.body ?? {}
 
   if (!slug || !title || !interiorPdfUrl || !coverSourceUrl ||
-      !shippingName || !shippingStreet || !shippingCity || !shippingState || !shippingPostcode) {
+      !shippingName || !shippingStreet || !shippingCity || !shippingState || !shippingPostcode || !shippingPhone) {
     return res.status(400).json({
       error: 'Required fields: slug, title, interiorPdfUrl, coverSourceUrl, ' +
-             'shippingName, shippingStreet, shippingCity, shippingState, shippingPostcode',
+             'shippingName, shippingStreet, shippingCity, shippingState, shippingPostcode, shippingPhone',
     })
   }
 
