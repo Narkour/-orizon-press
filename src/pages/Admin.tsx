@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import * as mammoth from 'mammoth'
 import { penNames } from '../data/catalogue'
 import { bustBooksCache } from '../hooks/useBooks'
 
@@ -176,7 +175,7 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
   useEffect(() => {
     fetch('/api/admin/books', { headers: { Authorization: `Bearer ${adminKey}` } })
       .then(r => r.json())
-      .then(setBooks)
+      .then(data => setBooks(Array.isArray(data) ? data : []))
       .catch(() => {})
   }, [adminKey])
 
@@ -196,7 +195,14 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
     setExtracting(true)
     try {
       const buf = await file.arrayBuffer()
-      const extracted = await mammoth.extractRawText({ arrayBuffer: buf })
+      // Dynamic import: avoids bundling mammoth into the main chunk
+      const mammothMod = await import('mammoth')
+      // Handle both named-export and default-export CJS interop patterns
+      type ExtractFn = (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>
+      const extractRawText: ExtractFn = (mammothMod as { extractRawText?: ExtractFn }).extractRawText
+        ?? (mammothMod as { default?: { extractRawText?: ExtractFn } }).default?.extractRawText
+        ?? (() => { throw new Error('mammoth.extractRawText not found') })
+      const extracted = await extractRawText({ arrayBuffer: buf })
       const segs = splitIntoSegments(extracted.value)
       setSegments(segs.map((text, i) => ({
         index: i,
@@ -587,7 +593,7 @@ function LuluSection({ adminKey }: { adminKey: string }) {
 
   useEffect(() => {
     fetch('/api/admin/books', { headers: { Authorization: `Bearer ${adminKey}` } })
-      .then(r => r.json()).then(setBooks).catch(() => {})
+      .then(r => r.json()).then(data => setBooks(Array.isArray(data) ? data : [])).catch(() => {})
   }, [adminKey])
 
   const selectedBook = books.find(b => b.slug === slug)
@@ -888,7 +894,7 @@ function BookList({ adminKey }: { adminKey: string }) {
   useEffect(() => {
     fetch('/api/admin/books', { headers: { Authorization: `Bearer ${adminKey}` } })
       .then(r => r.json())
-      .then(setBooks)
+      .then(data => setBooks(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [adminKey])
