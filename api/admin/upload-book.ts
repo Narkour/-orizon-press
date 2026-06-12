@@ -48,7 +48,6 @@ function parseForm(req: VercelRequest): Promise<{
     })
 
     bb.on('finish', () => {
-      if (!files['file']) return reject(new Error('No DOCX file received'))
       resolve({ fields, files })
     })
 
@@ -253,28 +252,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireAdmin(req, res)) return
 
   let fields: Record<string, string> = {}
-  let docxBuffer: Buffer
-  let filename: string
   let coverFile: ParsedFile | undefined
 
+  let parsed: { fields: Record<string, string>; files: Record<string, ParsedFile> }
   try {
-    const parsed = await parseForm(req)
+    parsed = await parseForm(req)
     fields = parsed.fields
-    docxBuffer = parsed.files['file'].buffer
-    filename = parsed.files['file'].filename
     coverFile = parsed.files['cover']
   } catch (err) {
     console.error('[upload-book] form parse error:', err)
     return res.status(400).json({ error: 'Could not parse upload. Send multipart/form-data.' })
   }
 
+  const allowedImageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+
+  // ── Cover-only update (no DOCX) ───────────────────────────────────────────────
+  if (!parsed.files['file']) {
+    if (!fields.slug || !coverFile) {
+      return res.status(400).json({ error: 'No DOCX file received. To update only the cover, include slug and cover.' })
+    }
+    if (!allowedImageTypes.includes(coverFile.mimeType)) {
+      return res.status(400).json({ error: 'Cover must be PNG, JPG, or WebP.' })
+    }
+    const ext = coverFile.mimeType === 'image/webp' ? 'webp' : coverFile.mimeType === 'image/png' ? 'png' : 'jpg'
+    const coverPath = `${fields.slug}.${ext}`
+    const { error: coverErr } = await supabase.storage
+      .from('covers').upload(coverPath, coverFile.buffer, { contentType: coverFile.mimeType, upsert: true })
+    if (coverErr) {
+      console.error('[upload-book] cover-only upload error:', coverErr)
+      return res.status(500).json({ error: `Cover upload failed: ${coverErr.message}` })
+    }
+    const { data: { publicUrl } } = supabase.storage.from('covers').getPublicUrl(coverPath)
+    const { error: dbError } = await supabase.from('books').update({ cover_url: publicUrl }).eq('slug', fields.slug)
+    if (dbError) {
+      console.error('[upload-book] cover-only DB update error:', dbError)
+      return res.status(500).json({ error: `DB update failed: ${dbError.message}` })
+    }
+    return res.status(200).json({ coverUrl: publicUrl, message: 'Cover updated.' })
+  }
+
+  // ── Full book upload (DOCX required) ─────────────────────────────────────────
+  const docxBuffer = parsed.files['file'].buffer
+  const filename = parsed.files['file'].filename
+
   if (!filename.toLowerCase().endsWith('.docx')) {
     return res.status(400).json({ error: 'File must be a .docx document.' })
   }
 
   if (coverFile) {
-    const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
-    if (!allowed.includes(coverFile.mimeType)) {
+    if (!allowedImageTypes.includes(coverFile.mimeType)) {
       return res.status(400).json({ error: 'Cover must be PNG, JPG, or WebP.' })
     }
   }

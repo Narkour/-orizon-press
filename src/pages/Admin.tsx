@@ -1,11 +1,59 @@
 import { useState, useRef, useEffect } from 'react'
+import * as mammoth from 'mammoth'
 import { penNames } from '../data/catalogue'
+import { bustBooksCache } from '../hooks/useBooks'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface BookRow {
   id: string; slug: string; title: string; author: string
   genre: string; available: boolean; pdf_path: string; epub_path: string | null
   cover_url: string; price: number; created_at: string
+  audio_price?: number | null; audio_available?: boolean | null
+}
+
+interface SegmentState {
+  index: number
+  title: string
+  text: string
+  status: 'idle' | 'generating' | 'done' | 'error'
+  errorMsg?: string
+  result?: { index: number; title: string; path: string; url: string; sizeMb: number }
+}
+
+function splitIntoSegments(text: string, maxChars = 5_000): string[] {
+  const paragraphs = text.split(/\n{2,}/)
+  const out: string[] = []
+  let buf = ''
+  for (const p of paragraphs) {
+    if (!p.trim()) continue
+    const combined = buf ? buf + '\n\n' + p : p
+    if (combined.length <= maxChars) {
+      buf = combined
+    } else {
+      if (buf) out.push(buf.trim())
+      if (p.length > maxChars) {
+        const sentences = p.match(/[^.!?]+[.!?]+\s*/g) ?? [p]
+        let sbuf = ''
+        for (const s of sentences) {
+          if ((sbuf + s).length <= maxChars) { sbuf += s }
+          else { if (sbuf) out.push(sbuf.trim()); sbuf = s }
+        }
+        buf = sbuf
+      } else {
+        buf = p
+      }
+    }
+  }
+  if (buf.trim()) out.push(buf.trim())
+  return out.filter(s => s.length > 0)
+}
+
+function detectSegmentTitle(text: string, index: number): string {
+  const firstLine = text.split('\n')[0].trim().slice(0, 80)
+  if (/^(chapter|part|prologue|epilogue|introduction|preface|afterword|section)\b/i.test(firstLine)) {
+    return firstLine
+  }
+  return `Segment ${index + 1}`
 }
 
 interface GeneratedMetadata {
@@ -112,16 +160,18 @@ const VOICES = [
   { id: 'ErXwobaYiN019PkySvjV', label: 'Antoni — storytelling male' },
   { id: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte — soft female' },
 ]
-const MAX_CHARS = 5_000
 
 function AudiobookSection({ adminKey }: { adminKey: string }) {
   const [books, setBooks] = useState<BookRow[]>([])
-  const [slug, setSlug] = useState('')
+  const [selectedSlug, setSelectedSlug] = useState('')
   const [voiceId, setVoiceId] = useState(VOICES[0].id)
-  const [text, setText] = useState('')
-  const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle')
-  const [result, setResult] = useState<{ audioPath: string; sizeMb: string } | null>(null)
-  const [errMsg, setErrMsg] = useState('')
+  const [extracting, setExtracting] = useState(false)
+  const [segments, setSegments] = useState<SegmentState[]>([])
+  const [generatingAll, setGeneratingAll] = useState(false)
+  const [audioPrice, setAudioPrice] = useState('')
+  const [audioAvailable, setAudioAvailable] = useState(false)
+  const [publishStatus, setPublishStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetch('/api/admin/books', { headers: { Authorization: `Bearer ${adminKey}` } })
@@ -130,27 +180,102 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
       .catch(() => {})
   }, [adminKey])
 
-  const generate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!slug || !text) return
-    setStatus('generating')
-    setErrMsg('')
-    setResult(null)
+  useEffect(() => {
+    if (!selectedSlug) { setAudioPrice(''); setAudioAvailable(false); setSegments([]); return }
+    const book = books.find(b => b.slug === selectedSlug)
+    if (book) {
+      setAudioPrice(book.audio_price != null ? String(book.audio_price) : '')
+      setAudioAvailable(book.audio_available ?? false)
+    }
+    setSegments([])
+  }, [selectedSlug]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDocxUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setExtracting(true)
+    try {
+      const buf = await file.arrayBuffer()
+      const extracted = await mammoth.extractRawText({ arrayBuffer: buf })
+      const segs = splitIntoSegments(extracted.value)
+      setSegments(segs.map((text, i) => ({
+        index: i,
+        title: detectSegmentTitle(text, i),
+        text,
+        status: 'idle',
+      })))
+    } catch {
+      alert('Failed to extract text from DOCX. Make sure it is a valid .docx file.')
+    } finally {
+      setExtracting(false)
+      if (e.target) e.target.value = ''
+    }
+  }
+
+  const generateSegment = async (idx: number) => {
+    const seg = segments[idx]
+    if (!seg) return
+    setSegments(prev => prev.map((s, i) => i === idx ? { ...s, status: 'generating', errorMsg: undefined } : s))
     try {
       const r = await fetch('/api/admin/elevenlabs-tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
-        body: JSON.stringify({ slug, text, voiceId }),
+        body: JSON.stringify({
+          slug: selectedSlug,
+          text: seg.text,
+          voiceId,
+          segmentIndex: idx,
+          segmentTitle: seg.title,
+        }),
       })
       const data = await r.json()
       if (!r.ok) throw new Error(data.error ?? `Server error ${r.status}`)
-      setResult(data)
-      setStatus('done')
+      setSegments(prev => prev.map((s, i) => i === idx ? { ...s, status: 'done', result: data.segment } : s))
     } catch (err) {
-      setErrMsg(err instanceof Error ? err.message : 'Generation failed')
-      setStatus('error')
+      setSegments(prev => prev.map((s, i) => i === idx ? {
+        ...s, status: 'error',
+        errorMsg: err instanceof Error ? err.message : 'Generation failed',
+      } : s))
     }
   }
+
+  const generateAll = async () => {
+    if (generatingAll || !selectedSlug) return
+    setGeneratingAll(true)
+    for (let i = 0; i < segments.length; i++) {
+      if (segments[i]?.status === 'done') continue
+      await generateSegment(i)
+    }
+    setGeneratingAll(false)
+  }
+
+  const savePublishSettings = async () => {
+    if (!selectedSlug) return
+    setPublishStatus('saving')
+    try {
+      const r = await fetch('/api/admin/books', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+        body: JSON.stringify({
+          slug: selectedSlug,
+          audio_price: audioPrice ? parseFloat(audioPrice) : null,
+          audio_available: audioAvailable,
+        }),
+      })
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        throw new Error((d as { error?: string }).error ?? 'Save failed')
+      }
+      setPublishStatus('saved')
+      setTimeout(() => setPublishStatus('idle'), 2000)
+    } catch {
+      setPublishStatus('error')
+      setTimeout(() => setPublishStatus('idle'), 3000)
+    }
+  }
+
+  const doneCount = segments.filter(s => s.status === 'done').length
+  const errorCount = segments.filter(s => s.status === 'error').length
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '0.6rem 0.85rem', border: '1px solid var(--border)',
@@ -168,25 +293,16 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
         Audiobook Generation
       </div>
       <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
-        Paste up to {MAX_CHARS.toLocaleString()} characters (one chapter or a sample). Powered by ElevenLabs.
+        Upload a DOCX to extract text. Each segment ≤ 5,000 chars is sent to ElevenLabs one at a time.
+        Set price and make available once all segments are generated.
       </p>
 
-      <form onSubmit={generate} style={{ display: 'grid', gap: '1.25rem' }}>
-        {status === 'error' && (
-          <div style={{ padding: '0.85rem 1rem', background: 'rgba(192,57,43,0.07)', border: '1px solid rgba(192,57,43,0.3)', fontSize: '0.82rem', color: '#c0392b' }}>
-            {errMsg}
-          </div>
-        )}
-        {status === 'done' && result && (
-          <div style={{ padding: '0.85rem 1rem', background: 'rgba(46,125,50,0.07)', border: '1px solid rgba(46,125,50,0.3)', fontSize: '0.82rem' }}>
-            ✓ Audio generated — {result.sizeMb} MB saved to <code>{result.audioPath}</code>
-          </div>
-        )}
-
+      <div style={{ display: 'grid', gap: '1.25rem' }}>
+        {/* Book + voice */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
           <div>
             <label style={labelStyle}>Book</label>
-            <select style={inputStyle} value={slug} onChange={e => setSlug(e.target.value)} required>
+            <select style={inputStyle} value={selectedSlug} onChange={e => setSelectedSlug(e.target.value)}>
               <option value="">— select book —</option>
               {books.map(b => <option key={b.slug} value={b.slug}>{b.title}</option>)}
             </select>
@@ -199,28 +315,130 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
           </div>
         </div>
 
-        <div>
-          <label style={labelStyle}>
-            Text to narrate — {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} chars
-          </label>
-          <textarea
-            style={{ ...inputStyle, height: 200, resize: 'vertical', fontFamily: 'var(--font-body)' }}
-            value={text}
-            onChange={e => setText(e.target.value.slice(0, MAX_CHARS))}
-            placeholder="Paste chapter or sample text here…"
-            required
-          />
-        </div>
+        {/* DOCX upload */}
+        {selectedSlug && (
+          <div>
+            <label style={labelStyle}>
+              {extracting ? 'Extracting text…' : 'Manuscript DOCX — upload to split into segments'}
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              onChange={handleDocxUpload}
+              disabled={extracting || generatingAll}
+              style={{ fontSize: '0.82rem', fontFamily: 'var(--font-body)' }}
+            />
+          </div>
+        )}
 
-        <button
-          type="submit"
-          className="btn btn--primary"
-          disabled={status === 'generating' || !slug || !text}
-          style={{ maxWidth: 240 }}
-        >
-          {status === 'generating' ? 'Generating audio…' : 'Generate MP3'}
-        </button>
-      </form>
+        {/* Segment list */}
+        {segments.length > 0 && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <span style={{ ...labelStyle, marginBottom: 0 }}>
+                {segments.length} segments · {doneCount} done{errorCount > 0 ? ` · ${errorCount} errors` : ''}
+              </span>
+              <button
+                className="btn btn--primary"
+                style={{ fontSize: '0.68rem' }}
+                disabled={generatingAll || doneCount === segments.length}
+                onClick={generateAll}
+              >
+                {generatingAll ? 'Generating…' : 'Generate All'}
+              </button>
+            </div>
+            <div style={{ border: '1px solid var(--border)', maxHeight: 380, overflowY: 'auto' }}>
+              {segments.map((seg, i) => (
+                <div key={i} style={{
+                  display: 'grid', gridTemplateColumns: '1fr auto auto',
+                  gap: '0.75rem', alignItems: 'center',
+                  padding: '0.6rem 0.85rem',
+                  borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                  background: seg.status === 'error'
+                    ? 'rgba(192,57,43,0.04)'
+                    : seg.status === 'done'
+                      ? 'rgba(46,125,50,0.04)'
+                      : 'var(--parchment)',
+                }}>
+                  <div style={{ minWidth: 0 }}>
+                    <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>
+                      {seg.title}
+                    </span>
+                    <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--mist)', marginTop: 1 }}>
+                      {seg.text.length.toLocaleString()} chars
+                      {seg.status === 'error' && (
+                        <span style={{ color: '#c0392b', marginLeft: 6 }}>{seg.errorMsg}</span>
+                      )}
+                      {seg.status === 'done' && seg.result && (
+                        <span style={{ color: '#2e7d32', marginLeft: 6 }}>✓ {seg.result.sizeMb} MB</span>
+                      )}
+                    </span>
+                  </div>
+                  <span style={{
+                    fontSize: '0.7rem',
+                    color: seg.status === 'done' ? '#2e7d32'
+                      : seg.status === 'error' ? '#c0392b'
+                        : seg.status === 'generating' ? 'var(--gold)'
+                          : 'var(--mist)',
+                  }}>
+                    {seg.status === 'generating' ? '⟳' : seg.status === 'done' ? '✓' : seg.status === 'error' ? '✗' : '–'}
+                  </span>
+                  <button
+                    className="btn btn--outline"
+                    style={{ fontSize: '0.6rem' }}
+                    disabled={seg.status === 'generating' || generatingAll}
+                    onClick={() => generateSegment(i)}
+                  >
+                    {seg.status === 'error' ? 'Retry' : seg.status === 'done' ? 'Regen' : 'Generate'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Publish settings */}
+        {selectedSlug && (
+          <div style={{ padding: '1rem', border: '1px solid var(--border)', background: 'rgba(0,0,0,0.02)' }}>
+            <div style={{ fontSize: '0.6rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '0.85rem' }}>
+              Publish settings
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'end' }}>
+              <div>
+                <label style={labelStyle}>Audiobook price (USD)</label>
+                <input
+                  style={inputStyle}
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 12.99"
+                  value={audioPrice}
+                  onChange={e => setAudioPrice(e.target.value)}
+                />
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem', cursor: 'pointer', paddingBottom: '0.65rem' }}>
+                <input type="checkbox" checked={audioAvailable} onChange={e => setAudioAvailable(e.target.checked)} />
+                Make available
+              </label>
+            </div>
+            <button
+              className="btn btn--primary"
+              style={{ fontSize: '0.72rem', marginTop: '0.75rem' }}
+              disabled={publishStatus === 'saving'}
+              onClick={savePublishSettings}
+            >
+              {publishStatus === 'saving'
+                ? 'Saving…'
+                : publishStatus === 'saved'
+                  ? '✓ Saved'
+                  : publishStatus === 'error'
+                    ? '✗ Failed — try again'
+                    : 'Save publish settings'}
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -514,10 +732,158 @@ function LuluSection({ adminKey }: { adminKey: string }) {
   )
 }
 
+// ─── Edit book form ───────────────────────────────────────────────────────────
+function EditBookForm({ book, adminKey, onSaved, onCancel }: {
+  book: BookRow
+  adminKey: string
+  onSaved: (updates: Partial<BookRow>) => void
+  onCancel: () => void
+}) {
+  const [title, setTitle] = useState(book.title)
+  const [author, setAuthor] = useState(book.author)
+  const [genre, setGenre] = useState(book.genre)
+  const [price, setPrice] = useState(String(book.price))
+  const [available, setAvailable] = useState(book.available)
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [coverPreview, setCoverPreview] = useState(book.cover_url || '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const coverInputRef = useRef<HTMLInputElement>(null)
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '0.5rem 0.75rem', border: '1px solid var(--border)',
+    fontFamily: 'var(--font-body)', fontSize: '0.85rem', background: 'white',
+    boxSizing: 'border-box',
+  }
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: '0.6rem', letterSpacing: '0.12em',
+    textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '0.3rem',
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setError('')
+    try {
+      const patchRes = await fetch('/api/admin/books', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+        body: JSON.stringify({ slug: book.slug, title, author, genre, price: parseFloat(price), available }),
+      })
+      if (!patchRes.ok) {
+        const data = await patchRes.json().catch(() => ({}))
+        throw new Error(data.error ?? `Save failed (${patchRes.status})`)
+      }
+
+      let newCoverUrl = book.cover_url
+      if (coverFile) {
+        const form = new FormData()
+        form.append('slug', book.slug)
+        form.append('cover', coverFile)
+        const coverRes = await fetch('/api/admin/upload-book', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${adminKey}` },
+          body: form,
+        })
+        const coverData = await coverRes.json()
+        if (!coverRes.ok) throw new Error(coverData.error ?? 'Cover upload failed')
+        newCoverUrl = coverData.coverUrl
+      }
+
+      bustBooksCache()
+      onSaved({ title, author, genre, price: parseFloat(price), available, cover_url: newCoverUrl })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <form
+      onSubmit={handleSave}
+      style={{ padding: '1.25rem 1rem', background: 'rgba(0,0,0,0.02)', borderTop: '1px solid var(--border)' }}
+    >
+      {error && (
+        <div style={{ padding: '0.6rem 0.85rem', background: 'rgba(192,57,43,0.07)', border: '1px solid rgba(192,57,43,0.3)', fontSize: '0.8rem', color: '#c0392b', marginBottom: '1rem' }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.85rem', marginBottom: '0.85rem' }}>
+        <div>
+          <label style={labelStyle}>Title</label>
+          <input style={inputStyle} value={title} onChange={e => setTitle(e.target.value)} required />
+        </div>
+        <div>
+          <label style={labelStyle}>Author</label>
+          <input style={inputStyle} value={author} onChange={e => setAuthor(e.target.value)} required />
+        </div>
+        <div>
+          <label style={labelStyle}>Genre</label>
+          <select style={inputStyle} value={genre} onChange={e => setGenre(e.target.value)}>
+            {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Price ($)</label>
+          <input style={inputStyle} type="number" min="0" step="0.01" value={price} onChange={e => setPrice(e.target.value)} required />
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.82rem' }}>
+          <input type="checkbox" checked={available} onChange={e => setAvailable(e.target.checked)} />
+          Live (visible in catalogue)
+        </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {coverPreview ? (
+            <img src={coverPreview} alt="Cover" style={{ width: 32, aspectRatio: '2/3', objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
+          ) : (
+            <div style={{ width: 32, aspectRatio: '2/3', background: 'var(--border)', flexShrink: 0 }} />
+          )}
+          <button
+            type="button"
+            className="btn btn--outline"
+            style={{ fontSize: '0.68rem' }}
+            onClick={() => coverInputRef.current?.click()}
+          >
+            {coverPreview ? 'Change cover' : 'Add cover'}
+          </button>
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept=".png,.jpg,.jpeg,.webp"
+            style={{ display: 'none' }}
+            onChange={e => {
+              const f = e.target.files?.[0]
+              if (!f) return
+              setCoverFile(f)
+              const reader = new FileReader()
+              reader.onload = ev => setCoverPreview(ev.target?.result as string)
+              reader.readAsDataURL(f)
+            }}
+          />
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <button type="submit" className="btn btn--primary" style={{ fontSize: '0.72rem' }} disabled={saving}>
+          {saving ? 'Saving…' : 'Save Changes'}
+        </button>
+        <button type="button" className="btn btn--outline" style={{ fontSize: '0.72rem' }} onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
+
 // ─── Book list ────────────────────────────────────────────────────────────────
 function BookList({ adminKey }: { adminKey: string }) {
   const [books, setBooks] = useState<BookRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [editingSlug, setEditingSlug] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/admin/books', { headers: { Authorization: `Bearer ${adminKey}` } })
@@ -536,28 +902,60 @@ function BookList({ adminKey }: { adminKey: string }) {
       </div>
       <div style={{ border: '1px solid var(--border)' }}>
         {books.map((b, i) => (
-          <div key={b.id} style={{
-            display: 'grid', gridTemplateColumns: '1fr auto auto auto',
-            gap: '1rem', alignItems: 'center',
-            padding: '0.75rem 1rem',
-            borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-            background: 'var(--parchment)',
-          }}>
-            <div>
-              <span style={{ fontSize: '0.88rem', fontFamily: 'var(--font-display)' }}>{b.title}</span>
-              <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--mist)', marginTop: 2 }}>
-                {b.author} · {b.genre}
+          <div key={b.id}>
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr auto auto auto auto',
+              gap: '0.75rem', alignItems: 'center',
+              padding: '0.75rem 1rem',
+              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+              background: editingSlug === b.slug ? 'rgba(0,0,0,0.02)' : 'var(--parchment)',
+            }}>
+              <div>
+                <span style={{ fontSize: '0.88rem', fontFamily: 'var(--font-display)' }}>{b.title}</span>
+                <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--mist)', marginTop: 2 }}>
+                  {b.author} · {b.genre}
+                </span>
+              </div>
+              <span style={{ fontSize: '0.68rem', color: b.pdf_path ? 'var(--gold)' : 'var(--mist)' }}>
+                {b.pdf_path ? 'PDF ✓' : 'No PDF'}
               </span>
+              <span style={{ fontSize: '0.68rem', color: b.epub_path ? 'var(--gold)' : 'var(--mist)' }}>
+                {b.epub_path ? 'EPUB ✓' : 'No EPUB'}
+              </span>
+              <span style={{ fontSize: '0.68rem', color: b.available ? '#2e7d32' : '#c0392b' }}>
+                {b.available ? 'Live' : 'Hidden'}
+              </span>
+              <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0, alignItems: 'center' }}>
+                <a
+                  href={`/books/${b.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: '0.68rem', color: 'var(--mist)', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                  onMouseOver={e => (e.currentTarget.style.color = 'var(--gold)')}
+                  onMouseOut={e => (e.currentTarget.style.color = 'var(--mist)')}
+                >
+                  View →
+                </a>
+                <button
+                  style={{ fontSize: '0.68rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mist)', padding: 0, textDecoration: 'underline', fontFamily: 'var(--font-body)' }}
+                  onClick={() => setEditingSlug(editingSlug === b.slug ? null : b.slug)}
+                >
+                  {editingSlug === b.slug ? 'Cancel' : 'Edit'}
+                </button>
+              </div>
             </div>
-            <span style={{ fontSize: '0.68rem', color: b.pdf_path ? 'var(--gold)' : 'var(--mist)' }}>
-              {b.pdf_path ? 'PDF ✓' : 'No PDF'}
-            </span>
-            <span style={{ fontSize: '0.68rem', color: b.epub_path ? 'var(--gold)' : 'var(--mist)' }}>
-              {b.epub_path ? 'EPUB ✓' : 'No EPUB'}
-            </span>
-            <span style={{ fontSize: '0.68rem', color: b.available ? '#2e7d32' : '#c0392b' }}>
-              {b.available ? 'Live' : 'Hidden'}
-            </span>
+
+            {editingSlug === b.slug && (
+              <EditBookForm
+                book={b}
+                adminKey={adminKey}
+                onSaved={updates => {
+                  setBooks(prev => prev.map(x => x.slug === b.slug ? { ...x, ...updates } : x))
+                  setEditingSlug(null)
+                }}
+                onCancel={() => setEditingSlug(null)}
+              />
+            )}
           </div>
         ))}
       </div>
@@ -649,6 +1047,7 @@ export default function Admin() {
       setEditedMeta(data.metadata)
       setStage('done')
       setStep('result')
+      bustBooksCache()
     } catch (err) {
       clearInterval(ticker)
       setErrMsg(err instanceof Error ? err.message : 'Upload failed')

@@ -21,9 +21,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     if (!rateLimit(req, res, { limit: 30, windowMs: 60 * 60_000, label: 'my-library' })) return
 
-    const { data: orders, error: dbError } = await supabase
+    const { data: allOrders, error: dbError } = await supabase
       .from('orders')
-      .select('id, book_slug, book_title, amount, created_at')
+      .select('id, book_slug, book_title, amount, created_at, order_type')
       .eq('buyer_email', user.email)
       .order('created_at', { ascending: false })
 
@@ -32,7 +32,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Failed to fetch library' })
     }
 
-    return res.status(200).json({ orders: orders ?? [] })
+    const rows = allOrders ?? []
+    const ebookOrders = rows.filter(o => !o.order_type || o.order_type === 'ebook')
+    const audiobookSlugs = [
+      ...new Set(
+        rows
+          .filter(o => o.order_type === 'audiobook')
+          .map(o => o.book_slug as string)
+      ),
+    ]
+
+    let audiobookAccess: Array<{ slug: string; title: string; chapters: object[] }> = []
+    if (audiobookSlugs.length > 0) {
+      const { data: audioBooks } = await supabase
+        .from('books')
+        .select('slug, title, audio_chapters')
+        .in('slug', audiobookSlugs)
+      audiobookAccess = (audioBooks ?? []).map(b => ({
+        slug: b.slug as string,
+        title: b.title as string,
+        chapters: (b.audio_chapters as object[]) ?? [],
+      }))
+    }
+
+    return res.status(200).json({ orders: ebookOrders, audiobookAccess })
   }
 
   // POST — issue a fresh re-download token
@@ -46,14 +69,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data: order, error: lookupError } = await supabase
       .from('orders')
-      .select('id')
+      .select('id, order_type')
       .eq('buyer_email', user.email)
       .eq('book_slug', bookSlug)
       .limit(1)
-      .single()
+      .maybeSingle()
 
-    if (lookupError || !order) {
-      return res.status(403).json({ error: 'No purchase found for this book' })
+    if (lookupError || !order || order.order_type === 'audiobook') {
+      return res.status(403).json({ error: 'No ebook purchase found for this book' })
     }
 
     const downloadToken = randomUUID()

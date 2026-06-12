@@ -6,6 +6,11 @@ import { fetchBooks } from '../lib/books'
 let cache: Book[] | null = null
 let inflight: Promise<Book[]> | null = null
 
+export function bustBooksCache() {
+  cache = null
+  inflight = null
+}
+
 export function useBooks() {
   const [books, setBooks] = useState<Book[]>(cache ?? [])
   const [loading, setLoading] = useState(!cache)

@@ -88,6 +88,20 @@ export interface BookFormat {
   streetlibUrl?: string;
 }
 
+export interface AudioChapter {
+  index: number;
+  title: string;
+  path: string;
+  url: string;
+  sizeMb?: number;
+}
+
+export interface AudiobookFormat {
+  available: boolean;
+  price: number | null;
+  chapters: AudioChapter[];
+}
+
 export interface Book {
   id: string;
   slug: string;
@@ -105,6 +119,7 @@ export interface Book {
   tags?: string[];
   ebook: BookFormat;
   print: BookFormat;
+  audiobook?: AudiobookFormat;
   reviews?: { text: string; source: string }[];
   sampleText?: string;
 }

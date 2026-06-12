@@ -1,4 +1,4 @@
-import type { Book } from '../data/catalogue'
+import type { Book, AudioChapter } from '../data/catalogue'
 
 export interface DbBook {
   id: string
@@ -14,6 +14,9 @@ export interface DbBook {
   price: number
   available: boolean
   sample_text: string | null
+  audio_price: number | null
+  audio_available: boolean | null
+  audio_chapters: AudioChapter[] | null
   created_at: string
   updated_at: string
 }
@@ -34,6 +37,11 @@ export function mapBook(row: DbBook): Book {
       price: Number(row.price),
     },
     print: { available: true, price: 16.99 },
+    audiobook: {
+      available: row.audio_available ?? false,
+      price: row.audio_price ? Number(row.audio_price) : null,
+      chapters: row.audio_chapters ?? [],
+    },
     sampleText: row.sample_text ?? undefined,
   }
 }

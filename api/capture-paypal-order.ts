@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // 10 captures per IP per 15 minutes
   if (!rateLimit(req, res, { limit: 10, windowMs: 15 * 60_000, label: 'capture-order' })) return
 
-  const { orderId, buyerEmail, bookSlug, bookTitle, amount } = req.body ?? {}
+  const { orderId, buyerEmail, bookSlug, bookTitle, amount, orderType } = req.body ?? {}
 
   if (!orderId || !buyerEmail || !bookSlug || !bookTitle || !amount) {
     return res.status(400).json({ error: 'Missing required fields' })
@@ -58,11 +58,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       amount: parseFloat(amount),
       download_token: downloadToken,
       token_expires_at: tokenExpiresAt,
+      order_type: orderType ?? 'ebook',
     })
 
     if (dbError) {
       console.error('[capture-paypal-order] Supabase insert error:', dbError)
       return res.status(500).json({ error: 'Failed to record order' })
+    }
+
+    if (orderType === 'audiobook') {
+      return res.status(200).json({ success: true, orderType: 'audiobook' })
     }
 
     return res.status(200).json({ downloadToken, expiresAt: tokenExpiresAt })

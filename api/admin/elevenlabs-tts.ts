@@ -1,26 +1,12 @@
-/**
- * POST /api/admin/elevenlabs-tts
- * Generates MP3 narration for a book using ElevenLabs TTS, then stores it
- * in Supabase Storage (ebooks bucket, audio/{slug}.mp3) and updates the
- * book record's audio_path column.
- *
- * Body: { slug, text, voiceId? }
- *   text — max 5 000 characters (one chapter or a sample)
- *
- * Requires env: ELEVENLABS_API_KEY
- */
-
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-
-export const maxDuration = 60
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '../_lib/admin-auth.js'
-import { rateLimit } from '../_lib/rate-limit.js'
+
+export const maxDuration = 60
 
 const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1'
 const MAX_CHARS = 5_000
 
-// Curated narrative voices for audiobooks
 export const VOICES: Record<string, string> = {
   'Adam (deep, narrative)':     'pNInz6obpgDQGcFmaJgB',
   'Rachel (clear, female)':     '21m00Tcm4TlvDq8ikWAM',
@@ -34,27 +20,35 @@ const supabase = createClient(
   process.env.SUPABASE_SECRET_KEY!
 )
 
+interface AudioChapter {
+  index: number
+  title: string
+  path: string
+  url: string
+  sizeMb: number
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
   if (!requireAdmin(req, res)) return
-  if (!rateLimit(req, res, { limit: 10, windowMs: 60 * 60_000, label: 'elevenlabs' })) return
 
   if (!process.env.ELEVENLABS_API_KEY) {
     return res.status(501).json({ error: 'ELEVENLABS_API_KEY not configured. Add it to Vercel environment variables.' })
   }
 
-  const { slug, text, voiceId } = req.body ?? {}
+  const { slug, text, voiceId, segmentIndex, segmentTitle } = req.body ?? {}
 
-  if (!slug || !text) {
-    return res.status(400).json({ error: 'Required fields: slug, text' })
-  }
+  if (!slug || !text) return res.status(400).json({ error: 'Required fields: slug, text' })
   if (typeof text !== 'string' || text.length > MAX_CHARS) {
-    return res.status(400).json({ error: `Text must be under ${MAX_CHARS} characters (currently ${text?.length ?? 0}).` })
+    return res.status(400).json({
+      error: `Text must be under ${MAX_CHARS} characters (currently ${text?.length ?? 0}).`,
+    })
   }
 
   const voice = typeof voiceId === 'string' && voiceId ? voiceId : DEFAULT_VOICE
+  const isChapterMode = typeof segmentIndex === 'number'
 
-  // ── 1. Generate audio via ElevenLabs ─────────────────────────────────────────
+  // ── 1. Generate audio via ElevenLabs ──────────────────────────────────────────
   let audioBuffer: Buffer
   try {
     const elRes = await fetch(`${ELEVENLABS_BASE}/text-to-speech/${voice}`, {
@@ -82,10 +76,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: err instanceof Error ? err.message : 'TTS generation failed.' })
   }
 
-  // ── 2. Upload to Supabase Storage ─────────────────────────────────────────────
-  const audioPath = `audio/${slug}.mp3`
+  // ── 2. Upload to Supabase Storage (`audio` bucket) ────────────────────────────
+  const idx = String(segmentIndex ?? 0).padStart(2, '0')
+  const audioPath = isChapterMode ? `${slug}/ch-${idx}.mp3` : `${slug}.mp3`
+
   const { error: storageErr } = await supabase.storage
-    .from('ebooks')
+    .from('audio')
     .upload(audioPath, audioBuffer, { contentType: 'audio/mpeg', upsert: true })
 
   if (storageErr) {
@@ -93,12 +89,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: `Storage upload failed: ${storageErr.message}` })
   }
 
-  // ── 3. Update book record ─────────────────────────────────────────────────────
-  await supabase
-    .from('books')
-    .update({ audio_path: audioPath, updated_at: new Date().toISOString() })
-    .eq('slug', slug)
+  const { data: { publicUrl } } = supabase.storage.from('audio').getPublicUrl(audioPath)
+  const sizeMb = parseFloat((audioBuffer.length / 1_048_576).toFixed(2))
 
-  const sizeMb = (audioBuffer.length / 1_048_576).toFixed(2)
-  return res.status(200).json({ audioPath, sizeMb, chars: text.length })
+  // ── 3. Update book record ─────────────────────────────────────────────────────
+  if (isChapterMode) {
+    // Fetch and upsert the chapter list
+    const { data: bookData } = await supabase
+      .from('books')
+      .select('audio_chapters')
+      .eq('slug', slug)
+      .single()
+
+    const existing: AudioChapter[] = (bookData?.audio_chapters as AudioChapter[] | null) ?? []
+
+    const newChapter: AudioChapter = {
+      index: segmentIndex,
+      title: typeof segmentTitle === 'string' && segmentTitle
+        ? segmentTitle
+        : `Segment ${segmentIndex + 1}`,
+      path: audioPath,
+      url: publicUrl,
+      sizeMb,
+    }
+
+    const updated = [
+      ...existing.filter(c => c.index !== segmentIndex),
+      newChapter,
+    ].sort((a, b) => a.index - b.index)
+
+    await supabase.from('books').update({ audio_chapters: updated }).eq('slug', slug)
+
+    return res.status(200).json({ segment: newChapter, totalSegments: updated.length })
+  }
+
+  // Legacy mode: store single audio path on book
+  return res.status(200).json({ audioPath, publicUrl, sizeMb, chars: text.length })
 }

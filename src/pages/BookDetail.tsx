@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, Navigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
-import { getPenNameById, type Book } from '../data/catalogue'
+import { getPenNameById, type Book, type AudioChapter } from '../data/catalogue'
 import BookCard from '../components/BookCard'
 import ShareButtons from '../components/ShareButtons'
 import ReviewSection from '../components/ReviewSection'
+import AudiobookPlayer from '../components/AudiobookPlayer'
 import { useBooks } from '../hooks/useBooks'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -468,13 +469,335 @@ function EbookPurchaseModal({ book, onClose }: { book: Book; onClose: () => void
   )
 }
 
+// ─── Audiobook purchase modal ─────────────────────────────────────────────────
+function AudiobookPurchaseModal({
+  book,
+  onClose,
+  onSuccess,
+}: {
+  book: Book
+  onClose: () => void
+  onSuccess: () => void
+}) {
+  const [step, setStep] = useState<Step>('email')
+  const [email, setEmail] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
+
+  useEffect(() => {
+    if (step !== 'paypal') return
+    let active = true
+    const buyerEmail = email
+
+    const renderButtons = () => {
+      if (!active || !window.paypal) return
+      if (!document.getElementById('paypal-audiobook-container')) return
+
+      window.paypal
+        .Buttons({
+          style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'pay', height: 45 },
+          createOrder: async () => {
+            const res = await fetch('/api/create-paypal-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                bookSlug: book.slug,
+                bookTitle: book.title,
+                amount: book.audiobook!.price,
+                buyerEmail,
+                orderType: 'audiobook',
+              }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error ?? 'Could not create order')
+            return data.orderId as string
+          },
+          onApprove: async (data) => {
+            if (!active) return
+            setStep('processing')
+            try {
+              const res = await fetch('/api/capture-paypal-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  orderId: data.orderID,
+                  buyerEmail,
+                  bookSlug: book.slug,
+                  bookTitle: book.title,
+                  amount: book.audiobook!.price,
+                  orderType: 'audiobook',
+                }),
+              })
+              const result = await res.json()
+              if (!res.ok) throw new Error(result.error ?? 'Payment capture failed')
+              setStep('success')
+            } catch (err) {
+              setErrorMsg(err instanceof Error ? err.message : 'Payment failed')
+              setStep('error')
+            }
+          },
+          onError: (err) => {
+            if (!active) return
+            console.error('[PayPal error]', err)
+            setErrorMsg('PayPal encountered an error. Please try again.')
+            setStep('error')
+          },
+          onCancel: () => { if (active) setStep('email') },
+        })
+        .render('#paypal-audiobook-container')
+        .catch((err) => {
+          if (!active) return
+          console.error('[PayPal render error]', err)
+          setErrorMsg('Could not load the payment form. Please try again.')
+          setStep('error')
+        })
+    }
+
+    if (window.paypal) {
+      renderButtons()
+    } else {
+      const script = document.createElement('script')
+      script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=USD&intent=capture&components=buttons`
+      script.onload = renderButtons
+      script.onerror = () => {
+        if (!active) return
+        setErrorMsg('Could not load PayPal. Check your connection and try again.')
+        setStep('error')
+      }
+      document.head.appendChild(script)
+    }
+
+    return () => { active = false }
+  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleBackdrop = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (step !== 'processing' && e.target === e.currentTarget) onClose()
+  }
+
+  const handleEmailSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError('Please enter a valid email address.')
+      return
+    }
+    setEmailError('')
+    setStep('paypal')
+  }
+
+  return (
+    <div
+      onClick={handleBackdrop}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 200,
+        background: 'rgba(26, 20, 16, 0.65)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '1rem', backdropFilter: 'blur(2px)',
+      }}
+    >
+      <div style={{
+        position: 'relative', width: '100%', maxWidth: 480,
+        background: 'var(--parchment)', padding: '2rem',
+        boxShadow: '0 20px 60px rgba(26, 20, 16, 0.3)',
+        maxHeight: '90vh', overflowY: 'auto',
+      }}>
+        {step !== 'processing' && (
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={{
+              position: 'absolute', top: 14, right: 14,
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '1.3rem', color: 'var(--mist)', lineHeight: 1, padding: '4px 8px',
+              transition: 'color var(--duration)',
+            }}
+            onMouseOver={e => (e.currentTarget.style.color = 'var(--ink)')}
+            onMouseOut={e => (e.currentTarget.style.color = 'var(--mist)')}
+          >×</button>
+        )}
+
+        {(step === 'email' || step === 'paypal') && (
+          <div style={{
+            display: 'flex', gap: '0.75rem', alignItems: 'center',
+            padding: '0.75rem', background: 'var(--parchment-mid)',
+            marginBottom: '1.5rem', borderLeft: '2px solid var(--gold)',
+          }}>
+            {book.coverImage && (
+              <img src={book.coverImage} alt="" style={{ width: 36, height: 54, objectFit: 'cover', flexShrink: 0 }} />
+            )}
+            <div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '0.88rem', color: 'var(--ink)', lineHeight: 1.3 }}>
+                {book.title}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--gold)', marginTop: '0.2rem', fontWeight: 600 }}>
+                ${book.audiobook!.price!.toFixed(2)} · Audiobook
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 'email' && (
+          <>
+            <span className="eyebrow" style={{ marginBottom: '0.4rem' }}>Purchase Audiobook</span>
+            <h2 style={{ fontSize: '1.3rem', fontFamily: 'var(--font-display)', fontWeight: 400, marginBottom: '0.6rem' }}>
+              Enter your email
+            </h2>
+            <p style={{ fontSize: '0.82rem', color: 'var(--mist)', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+              Instant streaming access after payment.
+            </p>
+            <form onSubmit={handleEmailSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.62rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '0.4rem' }}>
+                  Email address
+                </label>
+                <input
+                  type="email"
+                  autoFocus
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setEmailError('') }}
+                  style={{
+                    width: '100%', fontFamily: 'var(--font-body)', fontSize: '0.95rem',
+                    padding: '0.7rem 1rem', background: 'white', color: 'var(--ink)',
+                    border: `1px solid ${emailError ? '#c0392b' : 'var(--border)'}`, outline: 'none',
+                  }}
+                  onFocus={e => (e.currentTarget.style.borderColor = emailError ? '#c0392b' : 'var(--gold)')}
+                  onBlur={e => (e.currentTarget.style.borderColor = emailError ? '#c0392b' : 'var(--border)')}
+                />
+                {emailError && (
+                  <span style={{ display: 'block', fontSize: '0.72rem', color: '#c0392b', marginTop: '0.3rem' }}>
+                    {emailError}
+                  </span>
+                )}
+              </div>
+              <button type="submit" className="btn btn--primary" style={{ width: '100%', marginTop: '0.25rem' }}>
+                Continue to PayPal →
+              </button>
+            </form>
+          </>
+        )}
+
+        {step === 'paypal' && (
+          <>
+            <span className="eyebrow" style={{ marginBottom: '0.4rem' }}>Secure Checkout</span>
+            <h2 style={{ fontSize: '1.3rem', fontFamily: 'var(--font-display)', fontWeight: 400, marginBottom: '0.5rem' }}>
+              Complete payment
+            </h2>
+            <p style={{ fontSize: '0.78rem', color: 'var(--mist)', marginBottom: '1.25rem' }}>
+              Purchasing as <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>{email}</strong>
+            </p>
+            <div id="paypal-audiobook-container" style={{ minHeight: 55 }} />
+            <button
+              onClick={() => setStep('email')}
+              style={{
+                marginTop: '1rem', background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase',
+                color: 'var(--mist)', transition: 'color var(--duration)',
+              }}
+              onMouseOver={e => (e.currentTarget.style.color = 'var(--gold)')}
+              onMouseOut={e => (e.currentTarget.style.color = 'var(--mist)')}
+            >
+              ← Change email
+            </button>
+          </>
+        )}
+
+        {step === 'processing' && (
+          <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+            <div className="spinner" style={{ margin: '0 auto 1.25rem' }} />
+            <h2 style={{ fontSize: '1.1rem', fontFamily: 'var(--font-display)', fontWeight: 400, marginBottom: '0.4rem' }}>
+              Confirming payment…
+            </h2>
+            <p style={{ fontSize: '0.8rem', color: 'var(--mist)' }}>Please do not close this window.</p>
+          </div>
+        )}
+
+        {step === 'success' && (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: '50%',
+              background: 'rgba(196, 134, 42, 0.1)', border: '1px solid var(--gold)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 1.25rem', fontSize: '1.5rem', color: 'var(--gold)',
+            }}>✓</div>
+            <span className="eyebrow" style={{ marginBottom: '0.4rem' }}>Payment confirmed</span>
+            <h2 style={{ fontSize: '1.4rem', fontFamily: 'var(--font-display)', fontWeight: 400, marginBottom: '0.4rem' }}>
+              Your audiobook is ready
+            </h2>
+            <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '0.9rem', color: 'var(--mist)', marginBottom: '1.5rem' }}>
+              {book.title}
+            </p>
+            <button
+              className="btn btn--primary"
+              onClick={() => { onClose(); onSuccess() }}
+              style={{ width: '100%' }}
+            >
+              Start Listening →
+            </button>
+          </div>
+        )}
+
+        {step === 'error' && (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: '50%',
+              background: 'rgba(192, 57, 43, 0.07)', border: '1px solid rgba(192, 57, 43, 0.35)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              margin: '0 auto 1.25rem', fontSize: '1.3rem', color: '#c0392b',
+            }}>!</div>
+            <h2 style={{ fontSize: '1.2rem', fontFamily: 'var(--font-display)', fontWeight: 400, marginBottom: '0.5rem' }}>
+              Something went wrong
+            </h2>
+            <p style={{ fontSize: '0.82rem', color: 'var(--mist)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+              {errorMsg || 'An unexpected error occurred.'}
+            </p>
+            <button
+              className="btn btn--primary"
+              onClick={() => { setErrorMsg(''); setStep('email') }}
+              style={{ width: '100%' }}
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── BookDetail page ──────────────────────────────────────────────────────────
 export default function BookDetail() {
   const { slug } = useParams<{ slug: string }>()
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
   const [showSampleModal, setShowSampleModal] = useState(false)
+  const [showAudioPurchaseModal, setShowAudioPurchaseModal] = useState(false)
+  const [audiobookChapters, setAudiobookChapters] = useState<AudioChapter[]>([])
   const { books, loading } = useBooks()
-  const { user } = useAuth()
+  const { user, session } = useAuth()
+
+  const fetchAudiobookAccess = async (accessToken: string, bookSlug: string) => {
+    try {
+      const res = await fetch('/api/my-library', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      if (!res.ok) return
+      const data = await res.json()
+      const entry = (data.audiobookAccess ?? []).find(
+        (a: { slug: string }) => a.slug === bookSlug
+      )
+      if (entry?.chapters?.length > 0) {
+        setAudiobookChapters(entry.chapters as AudioChapter[])
+      }
+    } catch {
+      // not logged in or no purchase — silent
+    }
+  }
+
+  useEffect(() => {
+    if (session?.access_token && slug) {
+      fetchAudiobookAccess(session.access_token, slug)
+    }
+  }, [session?.access_token, slug]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -488,10 +811,12 @@ export default function BookDetail() {
   if (!book) return <Navigate to="/catalogue" replace />
 
   const author = getPenNameById(book.penNameId)
-  const moreBooks = books.filter(b => b.penNameId === book.penNameId && b.id !== book.id).slice(0, 4)
+  const moreBooks = books
+    .filter(b => book.penNameId && b.penNameId === book.penNameId && b.id !== book.id)
+    .slice(0, 4)
   const moreBooksIds = new Set(moreBooks.map(b => b.id))
   const similarBooks = books
-    .filter(b => b.genre === book.genre && b.id !== book.id && !moreBooksIds.has(b.id))
+    .filter(b => b.genre.toLowerCase() === book.genre.toLowerCase() && b.id !== book.id && !moreBooksIds.has(b.id))
     .slice(0, 3)
   const accent = book.coverAccent ?? '#c8911f'
 
@@ -589,6 +914,33 @@ export default function BookDetail() {
                   >Buy Print</a>
                 </div>
               )}
+              {book.audiobook?.available && book.audiobook.price !== null && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.8rem 0', borderTop: '1px solid var(--border)' }}>
+                  <div>
+                    <span style={{ display: 'block', fontSize: '0.68rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--mist)' }}>Audiobook</span>
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', color: 'var(--gold)', lineHeight: 1, marginTop: 2, display: 'block' }}>
+                      ${book.audiobook.price.toFixed(2)}
+                    </span>
+                  </div>
+                  {audiobookChapters.length > 0 ? (
+                    <button
+                      className="btn btn--outline"
+                      style={{ fontSize: '0.68rem' }}
+                      onClick={() => document.getElementById('audiobook-player')?.scrollIntoView({ behavior: 'smooth' })}
+                    >
+                      ▶ Listen Now
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn--outline"
+                      style={{ fontSize: '0.68rem' }}
+                      onClick={() => setShowAudioPurchaseModal(true)}
+                    >
+                      Buy Audiobook
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -651,6 +1003,9 @@ export default function BookDetail() {
             />
 
             <ReviewSection bookSlug={book.slug} userEmail={user?.email ?? null} />
+            {audiobookChapters.length > 0 && (
+              <AudiobookPlayer chapters={audiobookChapters} />
+            )}
           </div>
         </div>
 
@@ -697,6 +1052,24 @@ export default function BookDetail() {
         <EbookPurchaseModal
           book={book}
           onClose={() => setShowPurchaseModal(false)}
+        />
+      )}
+
+      {/* Audiobook purchase modal */}
+      {showAudioPurchaseModal && book.audiobook?.available && (
+        <AudiobookPurchaseModal
+          book={book}
+          onClose={() => setShowAudioPurchaseModal(false)}
+          onSuccess={() => {
+            if (session?.access_token && slug) {
+              fetchAudiobookAccess(session.access_token, slug).then(() => {
+                setTimeout(
+                  () => document.getElementById('audiobook-player')?.scrollIntoView({ behavior: 'smooth' }),
+                  100,
+                )
+              })
+            }
+          }}
         />
       )}
     </div>

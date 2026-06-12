@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     const { data, error } = await supabase
       .from('books')
-      .select('id, slug, title, author, genre, available, pdf_path, epub_path, cover_url, price, created_at')
+      .select('id, slug, title, author, genre, available, pdf_path, epub_path, cover_url, price, created_at, audio_price, audio_available, audio_chapters')
       .order('created_at', { ascending: false })
 
     if (error) return res.status(500).json({ error: error.message })
@@ -26,7 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data, error } = await supabase
       .from('books')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('slug', slug)
       .select()
       .single()

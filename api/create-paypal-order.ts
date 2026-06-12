@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // 10 order attempts per IP per 15 minutes
   if (!rateLimit(req, res, { limit: 10, windowMs: 15 * 60_000, label: 'create-order' })) return
 
-  const { bookSlug, bookTitle, amount, buyerEmail } = req.body ?? {}
+  const { bookSlug, bookTitle, amount, buyerEmail, orderType } = req.body ?? {}
 
   if (!bookSlug || !bookTitle || !amount || !buyerEmail) {
     return res.status(400).json({ error: 'Missing required fields' })
@@ -41,8 +41,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               currencyCode: 'USD',
               value: parsedAmount.toFixed(2),
             },
-            description: bookTitle,
-            customId: `${bookSlug}|${buyerEmail}`,
+            description: `${bookTitle} (${orderType === 'audiobook' ? 'Audiobook' : 'eBook'})`,
+            customId: `${bookSlug}|${buyerEmail}|${orderType ?? 'ebook'}`,
           },
         ],
       },
