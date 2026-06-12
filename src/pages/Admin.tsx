@@ -4,7 +4,7 @@ import { penNames } from '../data/catalogue'
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface BookRow {
   id: string; slug: string; title: string; author: string
-  genre: string; available: boolean; pdf_path: string
+  genre: string; available: boolean; pdf_path: string; epub_path: string | null
   cover_url: string; price: number; created_at: string
 }
 
@@ -40,15 +40,18 @@ const GENRES = [
 ]
 
 // ─── Auth gate ────────────────────────────────────────────────────────────────
-function AuthGate({ onAuth }: { onAuth: (key: string) => void }) {
+function AuthGate({ onAuth, error }: { onAuth: (key: string) => void; error?: string }) {
   const [pw, setPw] = useState('')
-  const [err, setErr] = useState('')
+  const [localErr, setLocalErr] = useState('')
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!pw.trim()) { setErr('Enter password'); return }
+    if (!pw.trim()) { setLocalErr('Enter password'); return }
+    setLocalErr('')
     onAuth(pw.trim())
   }
+
+  const displayErr = localErr || error
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--parchment)' }}>
@@ -60,11 +63,11 @@ function AuthGate({ onAuth }: { onAuth: (key: string) => void }) {
           type="password"
           placeholder="Admin password"
           value={pw}
-          onChange={e => setPw(e.target.value)}
+          onChange={e => { setPw(e.target.value); setLocalErr('') }}
           autoFocus
           style={{ width: '100%', padding: '0.7rem 1rem', border: '1px solid var(--border)', fontFamily: 'var(--font-body)', fontSize: '0.9rem', background: 'white', boxSizing: 'border-box' }}
         />
-        {err && <p style={{ color: '#c0392b', fontSize: '0.8rem', marginTop: '0.5rem' }}>{err}</p>}
+        {displayErr && <p style={{ color: '#c0392b', fontSize: '0.8rem', marginTop: '0.5rem' }}>{displayErr}</p>}
         <button type="submit" className="btn btn--primary" style={{ marginTop: '1rem', width: '100%' }}>
           Sign in
         </button>
@@ -102,6 +105,250 @@ function Progress({ stage }: { stage: ProcessStage | null }) {
   )
 }
 
+// ─── Audiobook generation ─────────────────────────────────────────────────────
+const VOICES = [
+  { id: 'pNInz6obpgDQGcFmaJgB', label: 'Adam — deep, narrative' },
+  { id: '21m00Tcm4TlvDq8ikWAM', label: 'Rachel — clear female' },
+  { id: 'ErXwobaYiN019PkySvjV', label: 'Antoni — storytelling male' },
+  { id: 'XB0fDUnXU5powFXDhCwa', label: 'Charlotte — soft female' },
+]
+const MAX_CHARS = 5_000
+
+function AudiobookSection({ adminKey }: { adminKey: string }) {
+  const [books, setBooks] = useState<BookRow[]>([])
+  const [slug, setSlug] = useState('')
+  const [voiceId, setVoiceId] = useState(VOICES[0].id)
+  const [text, setText] = useState('')
+  const [status, setStatus] = useState<'idle' | 'generating' | 'done' | 'error'>('idle')
+  const [result, setResult] = useState<{ audioPath: string; sizeMb: string } | null>(null)
+  const [errMsg, setErrMsg] = useState('')
+
+  useEffect(() => {
+    fetch('/api/admin/books', { headers: { Authorization: `Bearer ${adminKey}` } })
+      .then(r => r.json())
+      .then(setBooks)
+      .catch(() => {})
+  }, [adminKey])
+
+  const generate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!slug || !text) return
+    setStatus('generating')
+    setErrMsg('')
+    setResult(null)
+    try {
+      const r = await fetch('/api/admin/elevenlabs-tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+        body: JSON.stringify({ slug, text, voiceId }),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error ?? `Server error ${r.status}`)
+      setResult(data)
+      setStatus('done')
+    } catch (err) {
+      setErrMsg(err instanceof Error ? err.message : 'Generation failed')
+      setStatus('error')
+    }
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', padding: '0.6rem 0.85rem', border: '1px solid var(--border)',
+    fontFamily: 'var(--font-body)', fontSize: '0.88rem', background: 'var(--parchment)',
+    boxSizing: 'border-box',
+  }
+  const labelStyle: React.CSSProperties = {
+    display: 'block', fontSize: '0.62rem', letterSpacing: '0.14em',
+    textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '0.35rem',
+  }
+
+  return (
+    <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2.5rem' }}>
+      <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '0.5rem' }}>
+        Audiobook Generation
+      </div>
+      <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
+        Paste up to {MAX_CHARS.toLocaleString()} characters (one chapter or a sample). Powered by ElevenLabs.
+      </p>
+
+      <form onSubmit={generate} style={{ display: 'grid', gap: '1.25rem' }}>
+        {status === 'error' && (
+          <div style={{ padding: '0.85rem 1rem', background: 'rgba(192,57,43,0.07)', border: '1px solid rgba(192,57,43,0.3)', fontSize: '0.82rem', color: '#c0392b' }}>
+            {errMsg}
+          </div>
+        )}
+        {status === 'done' && result && (
+          <div style={{ padding: '0.85rem 1rem', background: 'rgba(46,125,50,0.07)', border: '1px solid rgba(46,125,50,0.3)', fontSize: '0.82rem' }}>
+            ✓ Audio generated — {result.sizeMb} MB saved to <code>{result.audioPath}</code>
+          </div>
+        )}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div>
+            <label style={labelStyle}>Book</label>
+            <select style={inputStyle} value={slug} onChange={e => setSlug(e.target.value)} required>
+              <option value="">— select book —</option>
+              {books.map(b => <option key={b.slug} value={b.slug}>{b.title}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Narrator voice</label>
+            <select style={inputStyle} value={voiceId} onChange={e => setVoiceId(e.target.value)}>
+              {VOICES.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label style={labelStyle}>
+            Text to narrate — {text.length.toLocaleString()} / {MAX_CHARS.toLocaleString()} chars
+          </label>
+          <textarea
+            style={{ ...inputStyle, height: 200, resize: 'vertical', fontFamily: 'var(--font-body)' }}
+            value={text}
+            onChange={e => setText(e.target.value.slice(0, MAX_CHARS))}
+            placeholder="Paste chapter or sample text here…"
+            required
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="btn btn--primary"
+          disabled={status === 'generating' || !slug || !text}
+          style={{ maxWidth: 240 }}
+        >
+          {status === 'generating' ? 'Generating audio…' : 'Generate MP3'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
+// ─── Distribution guides ──────────────────────────────────────────────────────
+const PLATFORMS = [
+  {
+    name: 'Draft2Digital',
+    tagline: 'Upload once → distribute to Apple Books, Kobo, B&N, Scribd, Overdrive & more',
+    url: 'https://www.draft2digital.com',
+    recommended: true,
+    steps: [
+      'Create a free account at draft2digital.com',
+      'Click "Add a Book" → upload your EPUB file and cover image (2560×1600 px minimum)',
+      'Fill in title, author, description, BISAC category, and price',
+      'Under "Channels", select Apple Books, Kobo, B&N Press, Scribd, and any others',
+      'Click Publish — Draft2Digital formats and delivers to all selected channels',
+      'Royalties: 70% of list price; D2D takes a 10% commission from your share',
+      'Reports and payments via D2D dashboard (monthly)',
+    ],
+  },
+  {
+    name: 'Apple Books',
+    tagline: 'Direct upload via iTunes Connect (skip if using Draft2Digital)',
+    url: 'https://itunesconnect.apple.com',
+    steps: [
+      'Enroll as an Apple Books publisher at itunesconnect.apple.com → sign in with Apple ID',
+      'Download Apple\'s Transporter app (Mac/Windows) or use the web uploader',
+      'Prepare: EPUB 3.0 file + cover art (1400×1400 px minimum, RGB JPEG)',
+      'In Books tab → click "+" → choose "Book" → upload EPUB and cover',
+      'Set territories, pricing tier (Tier 3 ≈ $3.99), and release date',
+      'Submit for review — approval takes 24–72 hours',
+      'Royalties: 70% worldwide',
+    ],
+  },
+  {
+    name: 'Kobo Writing Life',
+    tagline: 'Free, non-exclusive, 70% royalty on $2.99–$12.99',
+    url: 'https://www.kobo.com/writinglife',
+    steps: [
+      'Create account at kobo.com/writinglife',
+      'Click "Create eBook" → upload EPUB + cover image (1600×2400 px recommended)',
+      'Enter title, description, BISAC categories, language, and price',
+      'Set at least USD price; Kobo auto-converts for other currencies',
+      'Click "Save & Publish" — goes live within 24–72 hours',
+      'Royalties: 70% for $2.99–$12.99; 45% below or above that range',
+      'Payments monthly via PayPal or direct deposit (minimum $50 threshold)',
+    ],
+  },
+  {
+    name: 'Barnes & Noble Press',
+    tagline: 'Direct to B&N Nook readers, 70% royalty',
+    url: 'https://press.barnesandnoble.com',
+    steps: [
+      'Create a free B&N Press account at press.barnesandnoble.com',
+      'Click "Submit a Title" → upload EPUB + cover (1400×2100 px minimum)',
+      'Enter title, subtitle, contributors, description, BISAC, and ISBN (optional)',
+      'Set list price — must be $2.99+ for 70% royalty (40% below that)',
+      'Click Submit — B&N reviews within 24–72 hours',
+      'Payments quarterly via check or direct deposit (minimum $10)',
+    ],
+  },
+]
+
+function DistributionGuides() {
+  const [open, setOpen] = useState<string | null>(null)
+
+  const eyebrowStyle: React.CSSProperties = {
+    fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)',
+  }
+
+  return (
+    <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2.5rem' }}>
+      <div style={{ ...eyebrowStyle, marginBottom: '0.5rem' }}>Distribution Guides</div>
+      <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
+        Step-by-step instructions for publishing your EPUBs on major retail platforms.
+        <strong style={{ color: 'var(--ink)' }}> Tip: start with Draft2Digital to reach all platforms in one upload.</strong>
+      </p>
+
+      <div style={{ display: 'grid', gap: '0.75rem' }}>
+        {PLATFORMS.map(p => (
+          <div key={p.name} style={{ border: '1px solid var(--border)', background: 'var(--parchment)' }}>
+            <button
+              onClick={() => setOpen(o => o === p.name ? null : p.name)}
+              style={{
+                width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '0.9rem 1rem', background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'var(--font-body)', textAlign: 'left',
+              }}
+            >
+              <span>
+                <span style={{ fontSize: '0.9rem', fontFamily: 'var(--font-display)' }}>{p.name}</span>
+                {p.recommended && (
+                  <span style={{ marginLeft: '0.5rem', fontSize: '0.6rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid var(--gold)', padding: '1px 5px' }}>
+                    Recommended
+                  </span>
+                )}
+                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--mist)', marginTop: 2 }}>{p.tagline}</span>
+              </span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--mist)', flexShrink: 0, marginLeft: '1rem' }}>
+                {open === p.name ? '▲' : '▼'}
+              </span>
+            </button>
+
+            {open === p.name && (
+              <div style={{ padding: '0 1rem 1rem' }}>
+                <ol style={{ paddingLeft: '1.25rem', margin: 0, display: 'grid', gap: '0.6rem' }}>
+                  {p.steps.map((step, i) => (
+                    <li key={i} style={{ fontSize: '0.82rem', lineHeight: 1.6, color: 'var(--ink)' }}>{step}</li>
+                  ))}
+                </ol>
+                <a
+                  href={p.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'inline-block', marginTop: '0.85rem', fontSize: '0.75rem', color: 'var(--gold)' }}
+                >
+                  Open {p.name} →
+                </a>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Book list ────────────────────────────────────────────────────────────────
 function BookList({ adminKey }: { adminKey: string }) {
   const [books, setBooks] = useState<BookRow[]>([])
@@ -125,7 +372,7 @@ function BookList({ adminKey }: { adminKey: string }) {
       <div style={{ border: '1px solid var(--border)' }}>
         {books.map((b, i) => (
           <div key={b.id} style={{
-            display: 'grid', gridTemplateColumns: '1fr auto auto',
+            display: 'grid', gridTemplateColumns: '1fr auto auto auto',
             gap: '1rem', alignItems: 'center',
             padding: '0.75rem 1rem',
             borderTop: i === 0 ? 'none' : '1px solid var(--border)',
@@ -139,6 +386,9 @@ function BookList({ adminKey }: { adminKey: string }) {
             </div>
             <span style={{ fontSize: '0.68rem', color: b.pdf_path ? 'var(--gold)' : 'var(--mist)' }}>
               {b.pdf_path ? 'PDF ✓' : 'No PDF'}
+            </span>
+            <span style={{ fontSize: '0.68rem', color: b.epub_path ? 'var(--gold)' : 'var(--mist)' }}>
+              {b.epub_path ? 'EPUB ✓' : 'No EPUB'}
             </span>
             <span style={{ fontSize: '0.68rem', color: b.available ? '#2e7d32' : '#c0392b' }}>
               {b.available ? 'Live' : 'Hidden'}
@@ -173,6 +423,7 @@ export default function Admin() {
   const [errMsg, setErrMsg] = useState('')
   const [editedMeta, setEditedMeta] = useState<GeneratedMetadata | null>(null)
   const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Verify admin password against API
@@ -239,8 +490,9 @@ export default function Admin() {
   const saveEdits = async () => {
     if (!result || !editedMeta || !adminKey) return
     setSaving(true)
+    setSaveMsg(null)
     try {
-      await fetch('/api/admin/books', {
+      const r = await fetch('/api/admin/books', {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
         body:    JSON.stringify({
@@ -250,6 +502,14 @@ export default function Admin() {
           tagline:           editedMeta.tagline,
         }),
       })
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}))
+        setSaveMsg({ ok: false, text: data.error ?? `Save failed (${r.status})` })
+      } else {
+        setSaveMsg({ ok: true, text: 'Metadata saved to catalogue.' })
+      }
+    } catch {
+      setSaveMsg({ ok: false, text: 'Network error — changes not saved.' })
     } finally {
       setSaving(false)
     }
@@ -262,8 +522,7 @@ export default function Admin() {
     if (fileRef.current) fileRef.current.value = ''
   }
 
-  if (!authed) return <AuthGate onAuth={handleAuth} />
-  if (authError) return <AuthGate onAuth={handleAuth} />
+  if (!authed) return <AuthGate onAuth={handleAuth} error={authError} />
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '0.6rem 0.85rem', border: '1px solid var(--border)',
@@ -402,7 +661,18 @@ export default function Admin() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+          {saveMsg && (
+            <div style={{
+              padding: '0.75rem 1rem', fontSize: '0.82rem', marginTop: '1rem',
+              background: saveMsg.ok ? 'rgba(46,125,50,0.07)' : 'rgba(192,57,43,0.07)',
+              border: `1px solid ${saveMsg.ok ? 'rgba(46,125,50,0.3)' : 'rgba(192,57,43,0.3)'}`,
+              color: saveMsg.ok ? '#2e7d32' : '#c0392b',
+            }}>
+              {saveMsg.text}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
             <button
               className="btn btn--primary"
               onClick={saveEdits}
@@ -419,6 +689,12 @@ export default function Admin() {
 
       {/* ── Book list ── */}
       {step === 'idle' && <BookList adminKey={adminKey!} />}
+
+      {/* ── Audiobook generation ── */}
+      <AudiobookSection adminKey={adminKey!} />
+
+      {/* ── Distribution guides ── */}
+      <DistributionGuides />
     </div>
   )
 }

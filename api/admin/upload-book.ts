@@ -48,35 +48,23 @@ function parseForm(req: VercelRequest): Promise<{
     })
 
     bb.on('error', reject)
-    req.pipe(bb)
+
+    // vercel dev pre-reads the body and restores it via patched req.on('data'/'end').
+    // Using req.pipe(bb) can fail because pipe() may bypass the monkey-patch.
+    // Explicitly binding 'data' and 'end' is reliable in both dev and production.
+    req.on('data', (chunk: Buffer) => bb.write(chunk))
+    req.on('end', () => bb.end())
+    req.on('error', reject)
   })
 }
 
-/** Generate PDF bytes from extracted text using pdfmake. */
+/** Generate PDF bytes from extracted text using PDFKit directly. */
 async function generatePdf(
   title: string,
   author: string,
   htmlContent: string
 ): Promise<Buffer> {
-  // Dynamic import to avoid ESM/CJS issues at module load time
-  const { default: PdfPrinter } = await import('pdfmake')
-
-  const fonts = {
-    Times: {
-      normal:      'Times-Roman',
-      bold:        'Times-Bold',
-      italics:     'Times-Italic',
-      bolditalics: 'Times-BoldItalic',
-    },
-    Helvetica: {
-      normal:      'Helvetica',
-      bold:        'Helvetica-Bold',
-      italics:     'Helvetica-Oblique',
-      bolditalics: 'Helvetica-BoldOblique',
-    },
-  }
-
-  const printer = new PdfPrinter(fonts)
+  const PDFDocument = (await import('pdfkit')).default
 
   // Strip HTML tags from mammoth output for clean text
   const plainText = htmlContent
@@ -92,38 +80,37 @@ async function generatePdf(
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 
-  const paragraphs = plainText
-    .split(/\n\n+/)
-    .filter(p => p.trim())
-    .map(p => ({ text: p.trim(), style: 'body', margin: [0, 0, 0, 8] as [number, number, number, number] }))
-
-  const docDef = {
-    pageSize: 'A5' as const,
-    pageMargins: [54, 72, 54, 72] as [number, number, number, number],
-    defaultStyle: { font: 'Times', fontSize: 11, lineHeight: 1.55 },
-    styles: {
-      title:     { fontSize: 22, bold: true, font: 'Times', alignment: 'center' as const },
-      author:    { fontSize: 13, font: 'Helvetica', alignment: 'center' as const, color: '#555555' },
-      publisher: { fontSize: 9,  font: 'Helvetica', alignment: 'center' as const, color: '#888888' },
-      body:      { fontSize: 11, font: 'Times', lineHeight: 1.55 },
-    },
-    content: [
-      // Title page
-      { text: title,  style: 'title',     margin: [0, 120, 0, 16] as [number, number, number, number] },
-      { text: author, style: 'author',    margin: [0, 0, 0, 8] as [number, number, number, number] },
-      { text: 'Orizon Press', style: 'publisher', margin: [0, 0, 0, 0] as [number, number, number, number] },
-      { text: '', pageBreak: 'after' as const },
-      // Body
-      ...paragraphs,
-    ],
-  }
+  const paragraphs = plainText.split(/\n\n+/).filter(p => p.trim())
 
   return new Promise((resolve, reject) => {
-    const doc = printer.createPdfKitDocument(docDef)
+    const doc = new PDFDocument({
+      size: 'A5',
+      margins: { top: 72, bottom: 72, left: 54, right: 54 },
+      autoFirstPage: true,
+    })
+
     const chunks: Buffer[] = []
     doc.on('data', (c: Buffer) => chunks.push(c))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
+
+    // Title page
+    doc.moveDown(6)
+    doc.fontSize(22).font('Times-Roman').text(title, { align: 'center' })
+    doc.moveDown(0.5)
+    doc.fontSize(13).font('Helvetica').fillColor('#555555').text(author, { align: 'center' })
+    doc.moveDown(0.3)
+    doc.fontSize(9).fillColor('#888888').text('Orizon Press', { align: 'center' })
+
+    doc.addPage()
+
+    // Body
+    doc.fontSize(11).font('Times-Roman').fillColor('#1a1410')
+    for (const para of paragraphs) {
+      doc.text(para.trim(), { align: 'justify', lineGap: 4 })
+      doc.moveDown(0.6)
+    }
+
     doc.end()
   })
 }
@@ -256,6 +243,7 @@ Generate the following metadata as JSON (no markdown, just the JSON object):
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
+export const maxDuration = 60
 export const config = { api: { bodyParser: false } }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -274,6 +262,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     console.error('[upload-book] form parse error:', err)
     return res.status(400).json({ error: 'Could not parse upload. Send multipart/form-data.' })
+  }
+
+  if (!filename.toLowerCase().endsWith('.docx')) {
+    return res.status(400).json({ error: 'File must be a .docx document.' })
   }
 
   const { title, author, penNameId, genre, price } = fields

@@ -119,8 +119,10 @@ async function supaFetch(path, opts = {}) {
 }
 
 async function getBooks() {
-  const res = await supaFetch('/books?select=slug,title,author,description,epub_path')
-  return res.json()
+  const res = await supaFetch('/books?select=slug,title,author,description')
+  const data = await res.json()
+  if (!Array.isArray(data)) throw new Error(`Supabase error: ${JSON.stringify(data)}`)
+  return data
 }
 
 async function uploadEpub(slug, buffer) {
@@ -143,37 +145,45 @@ async function uploadEpub(slug, buffer) {
 }
 
 async function updateEpubPath(slug, epubPath) {
-  const res = await supaFetch(`/books?slug=eq.${slug}`, {
+  const res = await supaFetch(`/books?slug=eq.${encodeURIComponent(slug)}`, {
     method: 'PATCH',
     headers: { 'Prefer': 'return=minimal' },
     body: JSON.stringify({ epub_path: epubPath }),
   })
-  if (!res.ok) throw new Error(`DB update failed: ${res.status}`)
+  if (!res.ok) {
+    const text = await res.text()
+    // epub_path column may not exist yet — log but don't fail the whole run
+    if (text.includes('epub_path') || text.includes('column')) {
+      console.warn(`    (epub_path column missing in DB — skipping DB update for ${slug})`)
+      return
+    }
+    throw new Error(`DB update failed: ${res.status} ${text}`)
+  }
 }
 
 // ─── Book→DOCX filename map ───────────────────────────────────────────────────
 // Maps book slug to DOCX filename in BOOKS_DIR (adjust if filenames differ)
 const SLUG_TO_DOCX = {
-  'abundance-is-the-only-reality':           'Abundance_Is_the_Only_Reality.docx',
-  'the-world-in-50-years':                   'The_World_in_50_Years.docx',
-  'the-lost-kingdoms-of-africa':             'The_Lost_Kingdoms_of_Africa.docx',
-  'the-isis-transmissions':                  'The_Isis_Transmissions.docx',
-  'the-psychology-of-narcissism':            'The_Psychology_of_Narcissism.docx',
-  'sudan-empire-faith-and-freedom':          'Sudan.docx',
-  'chronicles-of-ancient-africa':            'Chronicles_of_Ancient_Africa.docx',
-  'ancient-and-indigenous-african-religions':'Ancient_and_Indigenous_African_Religions.docx',
-  'the-energy-body':                         'The_Energy_Body.docx',
-  'the-soul-of-the-land':                    'African_customs_and_ethics.docx',
-  'the-psychology-of-self-sabotage':         'Self-Dabotage.docx',
-  'unveiling-the-cosmos':                    'Unveiling_the_Cosmos.docx',
-  'unlocking-the-forces-of-wealth-and-abundance': 'Unlocking_the_Forces_of_Wealth_and_Abundance.docx',
-  'the-vibrational-universe':                'Vibrational_Universe_JoJo_Penwood.docx',
-  'the-shadow-of-the-baobab':                'Shadow_of_the_Baobab.docx',
-  'astrology-divination-everyday-life':      'Astrology_Divination.docx',
-  'nostradamus-prophecies-secrets':          'Nostradamus.docx',
-  'messengers-from-sirius':                  'dogon cosmology.docx',
-  'when-the-call-to-prayer-fell-silent':     'When_the_Call_to_Prayer_Fell_Silent.docx',
-  'chroniques-afrique-ancienne':             'Chroniques_de_lAfrique_Ancienne.docx',
+  'abundance-is-the-only-reality':                'Abundance Is the Only Reality.docx',
+  'the-world-in-50-years':                        'The World in 50 Years.docx',
+  'the-lost-kingdoms-of-africa':                  'The Lost Kingdoms of Africa.docx',
+  'the-isis-transmissions':                       'ISIS TRANSMISSIONS.docx',
+  'the-psychology-of-narcissism':                 'Narcissism.docx',
+  'sudan-empire-faith-and-freedom':               'Sudan.docx',
+  'chronicles-of-ancient-africa':                 'Chronicles of Ancient Africa.docx',
+  'ancient-and-indigenous-african-religions':     'AFRICAN RELIGIONS.docx',
+  'the-energy-body':                              'The Energy Body.docx',
+  'the-soul-of-the-land':                         'African customs and ethics.docx',
+  'the-psychology-of-self-sabotage':              'Self-Dabotage.docx',
+  'unveiling-the-cosmos':                         'Upstanding the Cosmos.docx',
+  'unlocking-the-forces-of-wealth-and-abundance': 'Wealth and abundance.docx',
+  'the-vibrational-universe':                     'Vibrational_Universe_JoJo_Penwood.docx',
+  'the-shadow-of-the-baobab':                     'The Shadow of the Baobab updated.docx',
+  'astrology-divination-everyday-life':           'Astrology and everyday life.docx',
+  'nostradamus-prophecies-secrets':               'Nostradamus.docx',
+  'messengers-from-sirius':                       'dogon cosmology.docx',
+  'when-the-call-to-prayer-fell-silent':          'When the call to prayer fell silent.docx',
+  'chroniques-afrique-ancienne':                  'Chroniques de la Afrique.docx',
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
