@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type JSZipType from 'jszip'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '../_lib/admin-auth.js'
 
@@ -50,15 +51,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let removedImages = 0
   let strippedMarkup = 0
 
-  for (const [filePath, entry] of Object.entries(zip.files)) {
-    if ((entry as JSZip.JSZipObject).dir) continue
+  for (const [filePath, entry] of Object.entries(zip.files) as [string, JSZipType.JSZipObject][]) {
+    if (entry.dir) continue
     if (isImageFile(filePath)) {
       zip.remove(filePath)
       removedImages++
       continue
     }
     if (/\.(xhtml|html|htm|opf|ncx|xml)$/i.test(filePath)) {
-      const content = await (entry as JSZip.JSZipObject).async('string')
+      const content = await entry.async('string')
       const stripped = stripBase64Images(content)
       if (stripped !== content) { zip.file(filePath, stripped); strippedMarkup++ }
     }
