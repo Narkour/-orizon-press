@@ -2,6 +2,9 @@
   "functions": {
     "api/**/*.ts": {
       "maxDuration": 30
+    },
+    "api/admin/compress-epub.ts": {
+      "maxDuration": 300
     }
   },
   "headers": [
@@ -23,6 +26,7 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)",              "destination": "/api/$1" },
+    { "source": "/sitemap.xml",           "destination": "/api/sitemap" },
     { "source": "/opds/catalogue",        "destination": "/api/opds/catalogue" },
     { "source": "/opds",                  "destination": "/api/opds" },
     { "source": "/(.*)",                  "destination": "/index.html" }

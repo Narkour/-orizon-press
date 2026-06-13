@@ -310,7 +310,25 @@ export default function Layout() {
             </div>
             <div>
               <div style={{ fontSize: '0.62rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '1rem' }}>Connect</div>
-              <a href="mailto:hello@orizonpress.com" style={{ fontSize: '0.85rem', color: 'rgba(244,239,230,0.6)' }}>hello@orizonpress.com</a>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                <a href="mailto:hello@orizonpress.com" style={{ fontSize: '0.85rem', color: 'rgba(244,239,230,0.6)', textDecoration: 'none', transition: 'color var(--duration)' }}
+                  onMouseOver={e => (e.currentTarget.style.color = 'var(--parchment)')}
+                  onMouseOut={e => (e.currentTarget.style.color = 'rgba(244,239,230,0.6)')}>
+                  hello@orizonpress.com
+                </a>
+                <a href="https://discord.gg/orizonpress" target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '0.85rem', color: 'rgba(244,239,230,0.6)', textDecoration: 'none', transition: 'color var(--duration)' }}
+                  onMouseOver={e => (e.currentTarget.style.color = 'var(--parchment)')}
+                  onMouseOut={e => (e.currentTarget.style.color = 'rgba(244,239,230,0.6)')}>
+                  Discord Community
+                </a>
+                <a href="https://orizonpress.substack.com" target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '0.85rem', color: 'rgba(244,239,230,0.6)', textDecoration: 'none', transition: 'color var(--duration)' }}
+                  onMouseOver={e => (e.currentTarget.style.color = 'var(--parchment)')}
+                  onMouseOut={e => (e.currentTarget.style.color = 'rgba(244,239,230,0.6)')}>
+                  Newsletter on Substack
+                </a>
+              </div>
             </div>
           </div>
           <div style={{ paddingTop: '1.5rem', textAlign: 'center' }}>

@@ -92,6 +92,34 @@ export default function About() {
             </p>
           </div>
 
+          <div style={{ marginBottom: '2.75rem' }}>
+            <h2 style={{ fontSize: '1.4rem', marginBottom: '0.9rem' }}>Join the Community</h2>
+            <p style={{ lineHeight: 1.9, color: 'var(--ink)', marginBottom: '1.5rem' }}>
+              Orizon Press is more than a bookstore — it is a gathering of readers, thinkers,
+              and seekers who believe African thought belongs at the centre of global culture.
+              Join our community to connect with fellow readers, receive early book announcements,
+              and take part in discussions that go deeper than the page.
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <a
+                href="https://discord.gg/orizonpress"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn--outline"
+              >
+                Join Discord
+              </a>
+              <a
+                href="https://orizonpress.substack.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn--outline"
+              >
+                Subscribe on Substack
+              </a>
+            </div>
+          </div>
+
           <div style={{
             display: 'flex', gap: '1rem', flexWrap: 'wrap',
             marginTop: '3rem', paddingTop: '2.5rem',

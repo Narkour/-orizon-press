@@ -495,125 +495,339 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
   )
 }
 
-// ─── Distribution guides ──────────────────────────────────────────────────────
-const PLATFORMS = [
-  {
-    name: 'StreetLib',
-    tagline: 'Free aggregator — reaches Apple Books, Kobo, Google Play, public libraries & more',
-    url: 'https://www.streetlib.com',
-    recommended: true,
-    steps: [
-      'Create a free account at streetlib.com (no exclusivity required)',
-      'Click "New Title" → upload your EPUB file and cover image (minimum 1400×1400 px, RGB JPEG or PNG)',
-      'Fill in title, author name, description, language, ISBN (StreetLib can assign a free one), and price',
-      'Select your distribution channels: Apple Books, Kobo, Google Play Books, Baker & Taylor (libraries), Overdrive, and others',
-      'Click Publish — StreetLib validates and delivers to selected stores within 5–10 business days',
-      'Royalties: 80% of net proceeds on the free tier (StreetLib retains 20%)',
-      'Payments via PayPal or bank transfer on a quarterly basis',
-    ],
-  },
-  {
-    name: 'Apple Books',
-    tagline: 'Direct upload via iTunes Connect (skip if using StreetLib)',
-    url: 'https://itunesconnect.apple.com',
-    steps: [
-      'Enroll as an Apple Books publisher at itunesconnect.apple.com → sign in with Apple ID',
-      'Download Apple\'s Transporter app (Mac/Windows) or use the web uploader',
-      'Prepare: EPUB 3.0 file + cover art (1400×1400 px minimum, RGB JPEG)',
-      'In Books tab → click "+" → choose "Book" → upload EPUB and cover',
-      'Set territories, pricing tier (Tier 3 ≈ $3.99), and release date',
-      'Submit for review — approval takes 24–72 hours',
-      'Royalties: 70% worldwide',
-    ],
-  },
-  {
-    name: 'Kobo Writing Life',
-    tagline: 'Free, non-exclusive, 70% royalty on $2.99–$12.99',
-    url: 'https://www.kobo.com/writinglife',
-    steps: [
-      'Create account at kobo.com/writinglife',
-      'Click "Create eBook" → upload EPUB + cover image (1600×2400 px recommended)',
-      'Enter title, description, BISAC categories, language, and price',
-      'Set at least USD price; Kobo auto-converts for other currencies',
-      'Click "Save & Publish" — goes live within 24–72 hours',
-      'Royalties: 70% for $2.99–$12.99; 45% below or above that range',
-      'Payments monthly via PayPal or direct deposit (minimum $50 threshold)',
-    ],
-  },
-  {
-    name: 'Barnes & Noble Press',
-    tagline: 'Direct to B&N Nook readers, 70% royalty',
-    url: 'https://press.barnesandnoble.com',
-    steps: [
-      'Create a free B&N Press account at press.barnesandnoble.com',
-      'Click "Submit a Title" → upload EPUB + cover (1400×2100 px minimum)',
-      'Enter title, subtitle, contributors, description, BISAC, and ISBN (optional)',
-      'Set list price — must be $2.99+ for 70% royalty (40% below that)',
-      'Click Submit — B&N reviews within 24–72 hours',
-      'Payments quarterly via check or direct deposit (minimum $10)',
-    ],
-  },
+// ─── EPUB compressor ─────────────────────────────────────────────────────────
+const COMPRESS_TARGETS = [
+  { slug: 'lost-kingdoms-of-africa',  label: 'Lost Kingdoms of Africa' },
+  { slug: 'messengers-from-sirius',   label: 'Messengers from Sirius' },
 ]
 
-function DistributionGuides() {
-  const [open, setOpen] = useState<string | null>(null)
+function CompressEpubSection({ adminKey }: { adminKey: string }) {
+  const [results, setResults] = useState<Record<string, { status: string; detail: string }>>({})
 
-  const eyebrowStyle: React.CSSProperties = {
+  const compress = async (slug: string) => {
+    setResults(r => ({ ...r, [slug]: { status: 'running', detail: 'Downloading & compressing…' } }))
+    try {
+      const res = await fetch('/api/admin/compress-epub', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+        body: JSON.stringify({ slug }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`)
+      setResults(r => ({
+        ...r,
+        [slug]: {
+          status: 'done',
+          detail: `${data.originalMB} MB → ${data.compressedMB} MB  (saved ${data.savedMB} MB, removed ${data.removedImages} image files)`,
+        },
+      }))
+    } catch (err) {
+      setResults(r => ({
+        ...r,
+        [slug]: { status: 'error', detail: err instanceof Error ? err.message : 'Failed' },
+      }))
+    }
+  }
+
+  const eyebrow: React.CSSProperties = {
     fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)',
   }
 
   return (
     <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2.5rem' }}>
-      <div style={{ ...eyebrowStyle, marginBottom: '0.5rem' }}>Distribution Guides</div>
-      <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
-        Step-by-step instructions for publishing your EPUBs on major retail platforms.
-        <strong style={{ color: 'var(--ink)' }}> Tip: start with StreetLib to reach all platforms in one upload.</strong>
+      <div style={{ ...eyebrow, marginBottom: '0.4rem' }}>EPUB Compression</div>
+      <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>
+        Strip embedded images from oversized EPUBs. Safe to run multiple times — overwrites the same file.
+        Takes up to 2–3 minutes per book.
       </p>
-
       <div style={{ display: 'grid', gap: '0.75rem' }}>
-        {PLATFORMS.map(p => (
-          <div key={p.name} style={{ border: '1px solid var(--border)', background: 'var(--parchment)' }}>
-            <button
-              onClick={() => setOpen(o => o === p.name ? null : p.name)}
-              style={{
-                width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '0.9rem 1rem', background: 'none', border: 'none', cursor: 'pointer',
-                fontFamily: 'var(--font-body)', textAlign: 'left',
-              }}
-            >
-              <span>
-                <span style={{ fontSize: '0.9rem', fontFamily: 'var(--font-display)' }}>{p.name}</span>
-                {p.recommended && (
-                  <span style={{ marginLeft: '0.5rem', fontSize: '0.6rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)', border: '1px solid var(--gold)', padding: '1px 5px' }}>
-                    Recommended
+        {COMPRESS_TARGETS.map(t => {
+          const r = results[t.slug]
+          return (
+            <div key={t.slug} style={{
+              display: 'grid', gridTemplateColumns: '1fr auto',
+              gap: '1rem', alignItems: 'center',
+              padding: '0.85rem 1rem', border: '1px solid var(--border)', background: 'var(--parchment)',
+            }}>
+              <div>
+                <span style={{ fontSize: '0.88rem', fontFamily: 'var(--font-display)' }}>{t.label}</span>
+                {r && (
+                  <span style={{
+                    display: 'block', fontSize: '0.72rem', marginTop: 3,
+                    color: r.status === 'done' ? '#2e7d32' : r.status === 'error' ? '#c0392b' : 'var(--mist)',
+                  }}>
+                    {r.detail}
                   </span>
                 )}
-                <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--mist)', marginTop: 2 }}>{p.tagline}</span>
-              </span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--mist)', flexShrink: 0, marginLeft: '1rem' }}>
-                {open === p.name ? '▲' : '▼'}
-              </span>
-            </button>
-
-            {open === p.name && (
-              <div style={{ padding: '0 1rem 1rem' }}>
-                <ol style={{ paddingLeft: '1.25rem', margin: 0, display: 'grid', gap: '0.6rem' }}>
-                  {p.steps.map((step, i) => (
-                    <li key={i} style={{ fontSize: '0.82rem', lineHeight: 1.6, color: 'var(--ink)' }}>{step}</li>
-                  ))}
-                </ol>
-                <a
-                  href={p.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ display: 'inline-block', marginTop: '0.85rem', fontSize: '0.75rem', color: 'var(--gold)' }}
-                >
-                  Open {p.name} →
-                </a>
               </div>
+              <button
+                className="btn btn--outline"
+                style={{ fontSize: '0.68rem', flexShrink: 0 }}
+                disabled={r?.status === 'running'}
+                onClick={() => compress(t.slug)}
+              >
+                {r?.status === 'running' ? 'Compressing…' : r?.status === 'done' ? 'Run Again' : 'Compress'}
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── Sales tracker ────────────────────────────────────────────────────────────
+interface OrderRow {
+  paypal_order_id: string
+  buyer_email: string
+  book_slug: string
+  book_title: string
+  amount: number
+  order_type: string
+  created_at: string
+  pen_name: string | null
+}
+
+function SalesChart({ orders }: { orders: OrderRow[] }) {
+  if (orders.length === 0) return null
+
+  // Build last 6 months of monthly revenue
+  const now = new Date()
+  const months: { label: string; revenue: number }[] = []
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const label = d.toLocaleString('default', { month: 'short' })
+    months.push({ label, revenue: 0 })
+    for (const o of orders) {
+      const ok = o.created_at?.slice(0, 7)
+      if (ok === key) months[months.length - 1].revenue += o.amount
+    }
+  }
+
+  const max = Math.max(...months.map(m => m.revenue), 1)
+  const W = 580, H = 140, padL = 44, padB = 28, padT = 12, padR = 12
+  const barW = (W - padL - padR) / months.length
+  const plotH = H - padT - padB
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
+      {/* y-axis gridlines */}
+      {[0, 0.25, 0.5, 0.75, 1].map(t => {
+        const y = padT + plotH * (1 - t)
+        return (
+          <g key={t}>
+            <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="var(--border)" strokeWidth={1} />
+            <text x={padL - 5} y={y + 4} textAnchor="end" fontSize={9} fill="var(--mist)">
+              ${Math.round(max * t)}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* bars */}
+      {months.map((m, i) => {
+        const bh = max > 0 ? (m.revenue / max) * plotH : 0
+        const x = padL + i * barW + barW * 0.15
+        const bwInner = barW * 0.7
+        const y = padT + plotH - bh
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width={bwInner} height={bh} fill="var(--gold)" opacity={0.85} rx={2} />
+            <text x={x + bwInner / 2} y={H - padB + 14} textAnchor="middle" fontSize={9} fill="var(--mist)">
+              {m.label}
+            </text>
+            {m.revenue > 0 && (
+              <text x={x + bwInner / 2} y={y - 4} textAnchor="middle" fontSize={8} fill="var(--ink)">
+                ${m.revenue.toFixed(0)}
+              </text>
             )}
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+function SalesTracker({ adminKey }: { adminKey: string }) {
+  const [orders, setOrders] = useState<OrderRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetch('/api/admin/orders', { headers: { Authorization: `Bearer ${adminKey}` } })
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) setOrders(data)
+        else setError(data.error ?? 'Failed to load orders')
+      })
+      .catch(() => setError('Network error'))
+      .finally(() => setLoading(false))
+  }, [adminKey])
+
+  const eyebrow: React.CSSProperties = {
+    fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)',
+  }
+
+  if (loading) return (
+    <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2.5rem' }}>
+      <div style={eyebrow}>Sales Tracker</div>
+      <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginTop: '0.5rem' }}>Loading orders…</p>
+    </div>
+  )
+
+  const totalRevenue = orders.reduce((s, o) => s + (o.amount ?? 0), 0)
+  const unitsSold = orders.length
+
+  // Revenue per book
+  const perBook = Object.values(
+    orders.reduce<Record<string, { title: string; revenue: number; units: number }>>((acc, o) => {
+      if (!acc[o.book_slug]) acc[o.book_slug] = { title: o.book_title, revenue: 0, units: 0 }
+      acc[o.book_slug].revenue += o.amount
+      acc[o.book_slug].units += 1
+      return acc
+    }, {})
+  ).sort((a, b) => b.revenue - a.revenue)
+
+  // Revenue per pen name
+  const perPen = Object.values(
+    orders.reduce<Record<string, { name: string; revenue: number; units: number }>>((acc, o) => {
+      const key = o.pen_name ?? 'Unknown'
+      if (!acc[key]) acc[key] = { name: key, revenue: 0, units: 0 }
+      acc[key].revenue += o.amount
+      acc[key].units += 1
+      return acc
+    }, {})
+  ).sort((a, b) => b.revenue - a.revenue)
+
+  return (
+    <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2.5rem' }}>
+      <div style={{ ...eyebrow, marginBottom: '0.5rem' }}>Sales Tracker</div>
+
+      {error && (
+        <div style={{ padding: '0.75rem 1rem', background: 'rgba(192,57,43,0.07)', border: '1px solid rgba(192,57,43,0.3)', fontSize: '0.82rem', color: '#c0392b', marginBottom: '1rem' }}>
+          {error}
+        </div>
+      )}
+
+      {/* Summary stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+        {[
+          { label: 'Total Revenue', value: `$${totalRevenue.toFixed(2)}` },
+          { label: 'Units Sold', value: String(unitsSold) },
+          { label: 'Avg Order', value: unitsSold > 0 ? `$${(totalRevenue / unitsSold).toFixed(2)}` : '—' },
+        ].map(s => (
+          <div key={s.label} style={{ padding: '1rem', border: '1px solid var(--border)', background: 'var(--parchment)' }}>
+            <div style={{ ...eyebrow, marginBottom: '0.3rem' }}>{s.label}</div>
+            <div style={{ fontSize: '1.4rem', fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>{s.value}</div>
           </div>
         ))}
+      </div>
+
+      {/* Revenue chart */}
+      <div style={{ marginBottom: '2rem' }}>
+        <div style={{ ...eyebrow, marginBottom: '0.75rem' }}>Monthly Revenue — Last 6 Months</div>
+        <div style={{ border: '1px solid var(--border)', background: 'var(--parchment)', padding: '1rem 0.5rem 0.5rem' }}>
+          <SalesChart orders={orders} />
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+        {/* Revenue per book */}
+        <div>
+          <div style={{ ...eyebrow, marginBottom: '0.75rem' }}>Revenue per Book</div>
+          {perBook.length === 0
+            ? <p style={{ fontSize: '0.8rem', color: 'var(--mist)' }}>No sales yet.</p>
+            : (
+              <div style={{ border: '1px solid var(--border)' }}>
+                {perBook.map((b, i) => (
+                  <div key={b.title} style={{
+                    display: 'grid', gridTemplateColumns: '1fr auto',
+                    gap: '0.5rem', padding: '0.55rem 0.75rem', alignItems: 'center',
+                    borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                    background: 'var(--parchment)',
+                  }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.title}</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--mist)', whiteSpace: 'nowrap' }}>
+                      ${b.revenue.toFixed(2)} · {b.units} sold
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+
+        {/* Revenue per pen name */}
+        <div>
+          <div style={{ ...eyebrow, marginBottom: '0.75rem' }}>Revenue per Pen Name</div>
+          {perPen.length === 0
+            ? <p style={{ fontSize: '0.8rem', color: 'var(--mist)' }}>No sales yet.</p>
+            : (
+              <div style={{ border: '1px solid var(--border)' }}>
+                {perPen.map((p, i) => (
+                  <div key={p.name} style={{
+                    display: 'grid', gridTemplateColumns: '1fr auto',
+                    gap: '0.5rem', padding: '0.55rem 0.75rem', alignItems: 'center',
+                    borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                    background: 'var(--parchment)',
+                  }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--ink)' }}>{p.name}</span>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--mist)', whiteSpace: 'nowrap' }}>
+                      ${p.revenue.toFixed(2)} · {p.units} sold
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+      </div>
+
+      {/* Orders table */}
+      <div>
+        <div style={{ ...eyebrow, marginBottom: '0.75rem' }}>All Orders — {unitsSold} total</div>
+        {orders.length === 0
+          ? <p style={{ fontSize: '0.8rem', color: 'var(--mist)' }}>No orders yet.</p>
+          : (
+            <div style={{ border: '1px solid var(--border)', maxHeight: 400, overflowY: 'auto' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '100px 1fr 1fr auto auto',
+                gap: '0.5rem', padding: '0.5rem 0.75rem',
+                background: 'rgba(0,0,0,0.04)',
+                borderBottom: '1px solid var(--border)',
+                position: 'sticky', top: 0,
+              }}>
+                {['Date', 'Book', 'Buyer', 'Type', 'Amount'].map(h => (
+                  <span key={h} style={{ ...eyebrow, marginBottom: 0 }}>{h}</span>
+                ))}
+              </div>
+              {orders.map((o, i) => (
+                <div key={o.paypal_order_id} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '100px 1fr 1fr auto auto',
+                  gap: '0.5rem', padding: '0.55rem 0.75rem', alignItems: 'center',
+                  borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                  background: 'var(--parchment)',
+                }}>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--mist)', whiteSpace: 'nowrap' }}>
+                    {new Date(o.created_at).toLocaleDateString()}
+                  </span>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {o.book_title}
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--mist)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {o.buyer_email}
+                  </span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--mist)', whiteSpace: 'nowrap' }}>
+                    {o.order_type ?? 'ebook'}
+                  </span>
+                  <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-display)', color: 'var(--ink)', whiteSpace: 'nowrap' }}>
+                    ${Number(o.amount).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
       </div>
     </div>
   )
@@ -1522,8 +1736,11 @@ export default function Admin() {
       {/* ── Lulu print-on-demand ── */}
       <LuluSection adminKey={adminKey!} />
 
-      {/* ── Distribution guides ── */}
-      <DistributionGuides />
+      {/* ── EPUB compression ── */}
+      <CompressEpubSection adminKey={adminKey!} />
+
+      {/* ── Sales tracker ── */}
+      <SalesTracker adminKey={adminKey!} />
     </div>
   )
 }

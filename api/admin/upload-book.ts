@@ -318,7 +318,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let plainText: string
   try {
     const result = await mammoth.convertToHtml({ buffer: docxBuffer })
+    // Strip base64-embedded images — they bloat EPUBs to 30 MB+
     htmlContent = result.value
+      .replace(/<img[^>]+src="data:[^"]*"[^>]*>/gi, '')
+      .replace(/<img[^>]*>/gi, '')
     plainText = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   } catch (err) {
     console.error('[upload-book] mammoth error:', err)
