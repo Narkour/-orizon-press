@@ -1,10 +1,7 @@
 {
   "functions": {
     "api/**/*.ts": {
-      "maxDuration": 30
-    },
-    "api/admin/compress-epub.ts": {
-      "maxDuration": 300
+      "maxDuration": 60
     }
   },
   "headers": [

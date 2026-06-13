@@ -2,9 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { requireAdmin } from '../_lib/admin-auth.js'
 
-// Allow up to 5 minutes — downloading + re-uploading 30 MB EPUBs takes time
-export const maxDuration = 300
-
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SECRET_KEY!
