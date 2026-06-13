@@ -507,10 +507,10 @@ function CompressEpubSection({ adminKey }: { adminKey: string }) {
   const compress = async (slug: string) => {
     setResults(r => ({ ...r, [slug]: { status: 'running', detail: 'Downloading & compressing…' } }))
     try {
-      const res = await fetch('/api/admin/compress-epub', {
+      const res = await fetch('/api/admin/books', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
-        body: JSON.stringify({ slug }),
+        body: JSON.stringify({ resource: 'compress-epub', slug }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `Error ${res.status}`)
@@ -655,7 +655,7 @@ function SalesTracker({ adminKey }: { adminKey: string }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    fetch('/api/admin/orders', { headers: { Authorization: `Bearer ${adminKey}` } })
+    fetch('/api/admin/books?resource=orders', { headers: { Authorization: `Bearer ${adminKey}` } })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) setOrders(data)
