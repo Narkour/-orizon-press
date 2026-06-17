@@ -23,6 +23,7 @@ export default function BlogPost() {
         <meta property="og:url" content={`https://orizonpress.com/blog/${post.slug}`} />
         <meta property="article:author" content={post.author} />
         <meta property="article:published_time" content={post.date} />
+        <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
 
       <div className="container">

@@ -60,6 +60,7 @@ export default function Catalogue() {
         <meta property="og:description" content="Browse all books published by Orizon Press across African history, spirituality, fiction and more." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/catalogue" />
+        <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
 
       <div className="container">

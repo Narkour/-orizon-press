@@ -11,6 +11,7 @@ export default function About() {
         <meta property="og:description" content="Orizon Press is an independent publisher of African history, consciousness, spirituality, and literary fiction — named for Ori, the Yoruba concept of personal divine consciousness." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/about" />
+        <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
       <div className="container">
         <div style={{ padding: '2rem 0 3rem', maxWidth: 600 }}>

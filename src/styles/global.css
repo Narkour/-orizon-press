@@ -328,6 +328,39 @@ a { color: inherit; }
   .newsletter-submit { text-align: center; }
 }
 
+/* ─── Scroll indicator ──────────────────────────────────────────────────── */
+@keyframes scrollBounce {
+  0%, 100% { transform: translateY(0); opacity: 0.75; }
+  50% { transform: translateY(10px); opacity: 1; }
+}
+.scroll-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: default;
+  user-select: none;
+}
+.scroll-indicator__chevron {
+  width: 44px;
+  height: 44px;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold);
+  font-size: 1.1rem;
+  animation: scrollBounce 2s ease-in-out infinite;
+}
+.scroll-indicator__label {
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.8;
+}
+
 /* ─── Book detail responsive grid ──────────────────────────────────────── */
 .book-detail-grid {
   display: grid;

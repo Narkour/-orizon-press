@@ -829,6 +829,10 @@ export default function BookDetail() {
         <meta property="og:description" content={book.description} />
         <meta property="og:type" content="book" />
         <meta property="og:url" content={`https://orizonpress.com/books/${book.slug}`} />
+        {book.coverImage
+          ? <meta property="og:image" content={book.coverImage} />
+          : <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
+        }
       </Helmet>
 
       <div className="container">

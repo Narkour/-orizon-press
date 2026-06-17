@@ -101,6 +101,9 @@ export default function Home() {
         <meta property="og:description" content="Independent publisher of African history, consciousness, spirituality and fiction. Buy direct from Orizon Press." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/" />
+        <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
+        <meta property="og:image:width" content="512" />
+        <meta property="og:image:height" content="512" />
       </Helmet>
 
       {/* ── Hero ── */}
@@ -142,6 +145,13 @@ export default function Home() {
             fontWeight: 600,
             border: '1px solid var(--ink)',
           }}>Meet the Authors</Link>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem' }}>
+          <div className="scroll-indicator" aria-hidden="true">
+            <div className="scroll-indicator__chevron">&#8595;</div>
+            <span className="scroll-indicator__label">Scroll</span>
+          </div>
         </div>
       </section>
 

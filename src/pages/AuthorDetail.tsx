@@ -28,6 +28,7 @@ export default function AuthorDetail() {
         <meta property="og:description" content={author.shortBio} />
         <meta property="og:type" content="profile" />
         <meta property="og:url" content={`https://orizonpress.com/authors/${author.slug}`} />
+        <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
       <div style={{ background:'var(--parchment-mid)', padding:'3rem 0', borderBottom:'1px solid var(--border)' }}>
         <div className="container">

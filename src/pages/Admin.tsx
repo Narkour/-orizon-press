@@ -509,6 +509,7 @@ function FeaturedBookSection({ adminKey }: { adminKey: string }) {
   const [loading, setLoading] = useState(true)
   const [working, setWorking] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     const headers = { Authorization: `Bearer ${adminKey}` }
@@ -570,94 +571,122 @@ function FeaturedBookSection({ adminKey }: { adminKey: string }) {
     fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)',
   }
 
-  // Compute today's auto-rotation book (same algorithm as the API)
   const dayIndex = Math.floor(Date.now() / 86_400_000)
   const autoBook = books.length > 0 ? books[dayIndex % books.length] : null
   const pinnedBook = books.find(b => b.slug === pinnedSlug)
 
+  const visibleBooks = searchQuery
+    ? books.filter(b => b.title.toLowerCase().includes(searchQuery.toLowerCase()) || b.author.toLowerCase().includes(searchQuery.toLowerCase()))
+    : books
+
   return (
     <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2.5rem' }}>
       <div style={{ ...eyebrow, marginBottom: '0.4rem' }}>Featured Book</div>
-      <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
-        The featured book rotates daily — a different book every 24 hours, cycling through all titles so every book gets exposure.
-        Pin a specific book to override the rotation for as long as you want.
+      <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>
+        Rotates daily through all titles. Pin a specific book to override indefinitely.
       </p>
 
       {/* Status card */}
-      <div style={{ padding: '0.85rem 1rem', border: '1px solid var(--border)', background: 'var(--parchment)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+      <div style={{ padding: '0.7rem 0.85rem', border: '1px solid var(--border)', background: 'var(--parchment)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
           {loading ? (
             <span style={{ fontSize: '0.82rem', color: 'var(--mist)' }}>Loading…</span>
           ) : pinned && pinnedBook ? (
-            <>
-              <span style={{ fontSize: '0.6rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)', display: 'block', marginBottom: 4 }}>Pinned (overriding rotation)</span>
-              <span style={{ fontSize: '0.9rem', fontFamily: 'var(--font-display)' }}>{pinnedBook.title}</span>
-            </>
+            <span style={{ fontSize: '0.82rem' }}>
+              <span style={{ fontSize: '0.58rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', marginRight: 8 }}>Pinned</span>
+              {pinnedBook.title}
+            </span>
           ) : (
-            <>
-              <span style={{ fontSize: '0.6rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)', display: 'block', marginBottom: 4 }}>Auto-rotating — today's featured</span>
-              <span style={{ fontSize: '0.9rem', fontFamily: 'var(--font-display)' }}>{autoBook?.title ?? '—'}</span>
-            </>
+            <span style={{ fontSize: '0.82rem' }}>
+              <span style={{ fontSize: '0.58rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mist)', marginRight: 8 }}>Auto-rotating today</span>
+              {autoBook?.title ?? '—'}
+            </span>
           )}
         </div>
         {pinned && (
           <button
             className="btn btn--outline"
-            style={{ fontSize: '0.68rem', flexShrink: 0 }}
+            style={{ fontSize: '0.65rem', flexShrink: 0, padding: '0.45rem 0.85rem' }}
             disabled={working === 'clear'}
             onClick={clearPin}
           >
-            {working === 'clear' ? 'Removing…' : 'Remove pin — resume rotation'}
+            {working === 'clear' ? 'Removing…' : 'Remove pin'}
           </button>
         )}
       </div>
 
       {msg && (
         <div style={{
-          padding: '0.6rem 0.85rem', fontSize: '0.8rem', marginBottom: '1rem',
+          padding: '0.5rem 0.75rem', fontSize: '0.78rem', marginBottom: '0.85rem',
           background: msg.ok ? 'rgba(46,125,50,0.07)' : 'rgba(192,57,43,0.07)',
           border: `1px solid ${msg.ok ? 'rgba(46,125,50,0.3)' : 'rgba(192,57,43,0.3)'}`,
           color: msg.ok ? '#2e7d32' : '#c0392b',
         }}>{msg.text}</div>
       )}
 
-      {/* Book picker */}
+      {/* Search + book picker */}
       {!loading && books.length > 0 && (
-        <div style={{ border: '1px solid var(--border)' }}>
-          {books.map((b, i) => {
-            const isToday = !pinned && b.slug === autoBook?.slug
-            const isPinned = pinned && b.slug === pinnedSlug
-            return (
-              <div
-                key={b.slug}
-                style={{
-                  display: 'grid', gridTemplateColumns: '1fr auto',
-                  gap: '1rem', alignItems: 'center',
-                  padding: '0.75rem 1rem',
-                  borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-                  background: isPinned ? 'rgba(196,134,42,0.08)' : isToday ? 'rgba(196,134,42,0.03)' : 'var(--parchment)',
-                }}
-              >
-                <div>
-                  <span style={{ fontSize: '0.88rem', fontFamily: 'var(--font-display)' }}>{b.title}</span>
-                  <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--mist)', marginTop: 2 }}>
-                    {b.author} · {b.genre}
-                    {isToday && <span style={{ marginLeft: 8, color: 'var(--gold)' }}>· today's auto-featured</span>}
-                    {isPinned && <span style={{ marginLeft: 8, color: 'var(--gold)' }}>· pinned</span>}
-                  </span>
-                </div>
-                <button
-                  className={isPinned ? 'btn btn--primary' : 'btn btn--outline'}
-                  style={{ fontSize: '0.68rem', flexShrink: 0 }}
-                  disabled={working === b.slug || isPinned}
-                  onClick={() => setFeatured(b.slug)}
+        <>
+          <input
+            type="search"
+            placeholder="Search to find a book to pin…"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%', padding: '0.5rem 0.75rem', marginBottom: '0.5rem',
+              border: '1px solid var(--border)', fontFamily: 'var(--font-body)',
+              fontSize: '0.82rem', background: 'white', boxSizing: 'border-box',
+            }}
+          />
+          <div style={{ border: '1px solid var(--border)', maxHeight: 320, overflowY: 'auto' }}>
+            {visibleBooks.length === 0 ? (
+              <div style={{ padding: '0.75rem', fontSize: '0.78rem', color: 'var(--mist)' }}>No books match.</div>
+            ) : visibleBooks.map((b, i) => {
+              const isToday = !pinned && b.slug === autoBook?.slug
+              const isPinned = pinned && b.slug === pinnedSlug
+              return (
+                <div
+                  key={b.slug}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.6rem',
+                    padding: '0.5rem 0.75rem',
+                    borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                    background: isPinned ? 'rgba(196,134,42,0.08)' : isToday ? 'rgba(196,134,42,0.03)' : 'var(--parchment)',
+                  }}
                 >
-                  {working === b.slug ? 'Pinning…' : isPinned ? 'Pinned ✓' : 'Pin this book'}
-                </button>
-              </div>
-            )
-          })}
-        </div>
+                  {b.cover_url
+                    ? <img src={b.cover_url} alt="" style={{ width: 20, height: 30, objectFit: 'cover', flexShrink: 0 }} />
+                    : <div style={{ width: 20, height: 30, background: 'var(--border)', flexShrink: 0 }} />
+                  }
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-display)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {b.title}
+                    </span>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--mist)' }}>
+                      {b.author}
+                      {isToday && <span style={{ marginLeft: 6, color: 'var(--gold)' }}>· today's auto</span>}
+                      {isPinned && <span style={{ marginLeft: 6, color: 'var(--gold)' }}>· pinned</span>}
+                    </span>
+                  </div>
+                  <button
+                    style={{
+                      fontSize: '0.6rem', letterSpacing: '0.08em', textTransform: 'uppercase',
+                      padding: '0.3rem 0.65rem', flexShrink: 0, cursor: isPinned ? 'default' : 'pointer',
+                      background: isPinned ? 'var(--ink)' : 'transparent',
+                      color: isPinned ? 'var(--parchment)' : 'var(--mist)',
+                      border: `1px solid ${isPinned ? 'var(--ink)' : 'var(--border)'}`,
+                      fontFamily: 'var(--font-body)',
+                    }}
+                    disabled={working === b.slug || isPinned}
+                    onClick={() => setFeatured(b.slug)}
+                  >
+                    {working === b.slug ? 'Pinning…' : isPinned ? 'Pinned ✓' : 'Pin'}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </>
       )}
     </div>
   )
@@ -1353,12 +1382,16 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
 }
 
 // ─── Book list ────────────────────────────────────────────────────────────────
+type CatalogueFilter = 'all' | 'live' | 'hidden' | 'no-cover' | 'no-epub'
+
 function BookList({ adminKey, refreshKey }: { adminKey: string; refreshKey: number }) {
   const [books, setBooks] = useState<BookRow[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState('')
   const [editingSlug, setEditingSlug] = useState<string | null>(null)
   const [deletingSlug, setDeletingSlug] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filter, setFilter] = useState<CatalogueFilter>('all')
 
   const load = () => {
     setLoading(true)
@@ -1398,6 +1431,51 @@ function BookList({ adminKey, refreshKey }: { adminKey: string; refreshKey: numb
     }
   }
 
+  const counts = {
+    all: books.length,
+    live: books.filter(b => b.available).length,
+    hidden: books.filter(b => !b.available).length,
+    'no-cover': books.filter(b => !b.cover_url).length,
+    'no-epub': books.filter(b => !b.epub_path).length,
+  }
+
+  const filteredBooks = books.filter(b => {
+    const q = searchQuery.toLowerCase()
+    if (q && !b.title.toLowerCase().includes(q) && !b.author.toLowerCase().includes(q)) return false
+    if (filter === 'live') return b.available
+    if (filter === 'hidden') return !b.available
+    if (filter === 'no-cover') return !b.cover_url
+    if (filter === 'no-epub') return !b.epub_path
+    return true
+  })
+
+  const filterLabels: Record<CatalogueFilter, string> = {
+    all: 'All',
+    live: 'Live',
+    hidden: 'Hidden',
+    'no-cover': 'No Cover',
+    'no-epub': 'No EPUB',
+  }
+
+  const tabBtn = (f: CatalogueFilter): React.CSSProperties => ({
+    padding: '0.28rem 0.65rem',
+    fontSize: '0.6rem',
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase' as const,
+    background: filter === f ? 'var(--ink)' : 'transparent',
+    color: filter === f ? 'var(--parchment)' : 'var(--mist)',
+    border: `1px solid ${filter === f ? 'var(--ink)' : 'var(--border)'}`,
+    cursor: 'pointer',
+    fontFamily: 'var(--font-body)',
+    whiteSpace: 'nowrap' as const,
+  })
+
+  const linkBtn: React.CSSProperties = {
+    fontSize: '0.65rem', background: 'none', border: 'none', cursor: 'pointer',
+    color: 'var(--mist)', padding: 0, fontFamily: 'var(--font-body)', textDecoration: 'none',
+    transition: 'color var(--duration)',
+  }
+
   if (loading) return (
     <div style={{ marginTop: '3rem' }}>
       <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '1rem' }}>
@@ -1409,16 +1487,39 @@ function BookList({ adminKey, refreshKey }: { adminKey: string; refreshKey: numb
 
   return (
     <div style={{ marginTop: '3rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
         <div style={{ fontSize: '0.6rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--mist)' }}>
           Catalogue — {books.length} title{books.length !== 1 ? 's' : ''}
         </div>
         <button
           onClick={load}
-          style={{ fontSize: '0.62rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mist)', padding: 0, textDecoration: 'underline', fontFamily: 'var(--font-body)' }}
+          style={{ ...linkBtn, textDecoration: 'underline' }}
         >
           Refresh
         </button>
+      </div>
+
+      {/* Search */}
+      <input
+        type="search"
+        placeholder="Search by title or author…"
+        value={searchQuery}
+        onChange={e => setSearchQuery(e.target.value)}
+        style={{
+          width: '100%', padding: '0.5rem 0.75rem', marginBottom: '0.6rem',
+          border: '1px solid var(--border)', fontFamily: 'var(--font-body)',
+          fontSize: '0.82rem', background: 'white', boxSizing: 'border-box',
+        }}
+      />
+
+      {/* Filter tabs */}
+      <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        {(Object.keys(filterLabels) as CatalogueFilter[]).map(f => (
+          <button key={f} onClick={() => setFilter(f)} style={tabBtn(f)}>
+            {filterLabels[f]} ({counts[f]})
+          </button>
+        ))}
       </div>
 
       {fetchError && (
@@ -1427,80 +1528,114 @@ function BookList({ adminKey, refreshKey }: { adminKey: string; refreshKey: numb
         </div>
       )}
 
-      {books.length === 0 && !fetchError && (
-        <p style={{ color: 'var(--mist)', fontSize: '0.82rem' }}>No books in catalogue yet.</p>
+      {filteredBooks.length === 0 && !fetchError && (
+        <p style={{ color: 'var(--mist)', fontSize: '0.82rem' }}>
+          {searchQuery || filter !== 'all' ? 'No books match this filter.' : 'No books in catalogue yet.'}
+        </p>
       )}
 
-      {books.length > 0 && (
+      {filteredBooks.length > 0 && (
         <div style={{ border: '1px solid var(--border)' }}>
-          {books.map((b, i) => (
-            <div key={b.id}>
-              <div
-                style={{
-                  display: 'grid', gridTemplateColumns: '1fr auto auto auto auto auto',
-                  gap: '0.75rem', alignItems: 'center',
-                  padding: '0.75rem 1rem',
-                  borderTop: i === 0 ? 'none' : '1px solid var(--border)',
-                  background: editingSlug === b.slug ? 'rgba(0,0,0,0.02)' : 'var(--parchment)',
-                  cursor: 'pointer',
-                }}
-                onClick={() => setEditingSlug(editingSlug === b.slug ? null : b.slug)}
-              >
-                <div>
-                  <span style={{ fontSize: '0.88rem', fontFamily: 'var(--font-display)' }}>{b.title}</span>
-                  <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--mist)', marginTop: 2 }}>
-                    {b.author} · {b.genre}
-                  </span>
-                </div>
-                <span style={{ fontSize: '0.68rem', color: b.pdf_path ? 'var(--gold)' : 'var(--mist)' }}>
-                  {b.pdf_path ? 'PDF ✓' : 'No PDF'}
-                </span>
-                <span style={{ fontSize: '0.68rem', color: b.epub_path ? 'var(--gold)' : 'var(--mist)' }}>
-                  {b.epub_path ? 'EPUB ✓' : 'No EPUB'}
-                </span>
-                <span style={{ fontSize: '0.68rem', color: b.available ? '#2e7d32' : '#c0392b' }}>
-                  {b.available ? 'Live' : 'Hidden'}
-                </span>
-                <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
-                  <a
-                    href={`/books/${b.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ fontSize: '0.68rem', color: 'var(--mist)', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                    onMouseOver={e => (e.currentTarget.style.color = 'var(--gold)')}
-                    onMouseOut={e => (e.currentTarget.style.color = 'var(--mist)')}
-                  >
-                    View →
-                  </a>
-                  <button
-                    style={{ fontSize: '0.68rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mist)', padding: 0, textDecoration: 'underline', fontFamily: 'var(--font-body)' }}
-                    onClick={() => setEditingSlug(editingSlug === b.slug ? null : b.slug)}
-                  >
-                    {editingSlug === b.slug ? 'Cancel' : 'Edit'}
-                  </button>
-                  <button
-                    style={{ fontSize: '0.68rem', background: 'none', border: 'none', cursor: 'pointer', color: deletingSlug === b.slug ? 'var(--mist)' : '#c0392b', padding: 0, fontFamily: 'var(--font-body)' }}
-                    disabled={deletingSlug === b.slug}
-                    onClick={() => handleDelete(b)}
-                  >
-                    {deletingSlug === b.slug ? 'Deleting…' : 'Delete'}
-                  </button>
-                </div>
-              </div>
-
-              {editingSlug === b.slug && (
-                <EditBookForm
-                  book={b}
-                  adminKey={adminKey}
-                  onSaved={updates => {
-                    setBooks(prev => prev.map(x => x.slug === b.slug ? { ...x, ...updates } : x))
-                    setEditingSlug(null)
+          {filteredBooks.map((b, i) => {
+            const genres = b.genre ? b.genre.split(',').map(g => g.trim()).filter(Boolean) : []
+            const isExpanded = editingSlug === b.slug
+            return (
+              <div key={b.id}>
+                {/* Compact row */}
+                <div
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.6rem',
+                    padding: '0.5rem 0.75rem',
+                    borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                    background: isExpanded ? 'rgba(0,0,0,0.03)' : 'var(--parchment)',
+                    cursor: 'pointer',
+                    userSelect: 'none',
                   }}
-                  onCancel={() => setEditingSlug(null)}
-                />
-              )}
-            </div>
-          ))}
+                  onClick={() => setEditingSlug(isExpanded ? null : b.slug)}
+                >
+                  {/* Tiny cover */}
+                  {b.cover_url
+                    ? <img src={b.cover_url} alt="" style={{ width: 22, height: 33, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
+                    : <div style={{ width: 22, height: 33, background: 'var(--border)', flexShrink: 0 }} />
+                  }
+
+                  {/* Title + author */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-display)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {b.title}
+                    </span>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--mist)', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {b.author}
+                    </span>
+                  </div>
+
+                  {/* Genre tags — first 2 only, hidden on tiny screens */}
+                  <div style={{ display: 'flex', gap: '0.25rem', flexShrink: 0, overflow: 'hidden' }}>
+                    {genres.slice(0, 2).map(g => (
+                      <span key={g} style={{ fontSize: '0.55rem', letterSpacing: '0.06em', padding: '0.1rem 0.35rem', border: '1px solid var(--border)', color: 'var(--mist)', whiteSpace: 'nowrap', textTransform: 'uppercase' }}>
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Status badges */}
+                  <span style={{ fontSize: '0.6rem', color: b.available ? '#2e7d32' : '#b0432b', flexShrink: 0, whiteSpace: 'nowrap', fontWeight: 600 }}>
+                    {b.available ? '● Live' : '○ Hidden'}
+                  </span>
+                  <span style={{ fontSize: '0.6rem', color: b.epub_path ? 'var(--gold)' : 'rgba(0,0,0,0.2)', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    EPUB
+                  </span>
+
+                  {/* Expand chevron */}
+                  <span style={{
+                    fontSize: '0.65rem', color: 'var(--mist)', flexShrink: 0,
+                    display: 'inline-block',
+                    transform: isExpanded ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.18s',
+                  }}>▾</span>
+                </div>
+
+                {/* Expanded: action bar + edit form */}
+                {isExpanded && (
+                  <div>
+                    <div style={{
+                      display: 'flex', gap: '1.25rem', alignItems: 'center',
+                      padding: '0.45rem 0.75rem',
+                      background: 'rgba(0,0,0,0.04)',
+                      borderTop: '1px solid var(--border)',
+                    }} onClick={e => e.stopPropagation()}>
+                      <a
+                        href={`/books/${b.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ ...linkBtn, color: 'var(--mist)' }}
+                        onMouseOver={e => (e.currentTarget.style.color = 'var(--gold)')}
+                        onMouseOut={e => (e.currentTarget.style.color = 'var(--mist)')}
+                      >
+                        View page →
+                      </a>
+                      <button
+                        style={{ ...linkBtn, color: deletingSlug === b.slug ? 'var(--mist)' : '#c0392b' }}
+                        disabled={deletingSlug === b.slug}
+                        onClick={() => handleDelete(b)}
+                      >
+                        {deletingSlug === b.slug ? 'Deleting…' : 'Delete book'}
+                      </button>
+                    </div>
+                    <EditBookForm
+                      book={b}
+                      adminKey={adminKey}
+                      onSaved={updates => {
+                        setBooks(prev => prev.map(x => x.slug === b.slug ? { ...x, ...updates } : x))
+                        setEditingSlug(null)
+                      }}
+                      onCancel={() => setEditingSlug(null)}
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

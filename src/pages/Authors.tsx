@@ -16,6 +16,7 @@ export default function Authors() {
         <meta property="og:description" content="Meet the authors behind Orizon Press — J.N. Nartey, JOJO Penwood, Ajona Penhart, and Ajora Kandasorey." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/authors" />
+        <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
       <div className="container">
         <div style={{ padding:'2rem 0 3rem', maxWidth:640 }}>
