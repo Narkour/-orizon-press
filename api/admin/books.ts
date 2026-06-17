@@ -19,6 +19,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireAdmin(req, res)) return
 
   if (req.method === 'GET') {
+    if (req.query.resource === 'featured-config') {
+      const { data, error } = await supabase.storage.from('ebooks').download('_config.json')
+      if (error || !data) return res.status(200).json({ featuredSlug: null, pinned: false })
+      try {
+        const cfg = JSON.parse(await (data as Blob).text())
+        return res.status(200).json({ featuredSlug: cfg.featuredSlug ?? null, pinned: cfg.pinned ?? false })
+      } catch {
+        return res.status(200).json({ featuredSlug: null, pinned: false })
+      }
+    }
+
     // Orders for sales tracker: GET /api/admin/books?resource=orders
     if (req.query.resource === 'orders') {
       const [ordersResult, booksResult, penNamesResult] = await Promise.all([
@@ -44,7 +55,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const { data, error } = await supabase
       .from('books')
-      .select('id, slug, title, author, genre, available, pdf_path, epub_path, cover_url, price, created_at, audio_price, audio_available, audio_chapters, description, short_description, tagline')
+      .select('id, slug, title, author, genre, available, pdf_path, epub_path, cover_url, price, created_at, audio_price, audio_available, audio_chapters, description, short_description, tagline, sample_text')
       .order('created_at', { ascending: false })
 
     if (error) return res.status(500).json({ error: error.message })
@@ -72,8 +83,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!slug) return res.status(400).json({ error: 'slug required' })
     const { data: book, error: bookErr } = await supabase.from('books').select('slug, title, epub_path').eq('slug', slug).single()
     if (bookErr || !book) return res.status(404).json({ error: 'Book not found' })
-    if (!book.epub_path) return res.status(400).json({ error: 'Book has no epub_path' })
-    const { data: fileData, error: dlErr } = await supabase.storage.from('ebooks').download(book.epub_path)
+
+    // Resolve epub_path: if null, try the default slug.epub convention in storage
+    let epubPath = book.epub_path
+    if (!epubPath) {
+      const fallback = `${slug}.epub`
+      const { data: probe } = await supabase.storage.from('ebooks').download(fallback)
+      if (!probe) return res.status(400).json({ error: 'No EPUB found in storage. Upload the manuscript again to generate one.' })
+      await supabase.from('books').update({ epub_path: fallback }).eq('slug', slug)
+      epubPath = fallback
+    }
+
+    const { data: fileData, error: dlErr } = await supabase.storage.from('ebooks').download(epubPath)
     if (dlErr || !fileData) return res.status(500).json({ error: `Download failed: ${dlErr?.message}` })
     const originalBytes = Buffer.from(await fileData.arrayBuffer())
     const originalMB = (originalBytes.length / 1024 / 1024).toFixed(2)
@@ -91,9 +112,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     const newBytes = (await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } })) as Buffer
     const newMB = (newBytes.length / 1024 / 1024).toFixed(2)
-    const { error: upErr } = await supabase.storage.from('ebooks').upload(book.epub_path, newBytes, { contentType: 'application/epub+zip', upsert: true })
+    const { error: upErr } = await supabase.storage.from('ebooks').upload(epubPath, newBytes, { contentType: 'application/epub+zip', upsert: true })
     if (upErr) return res.status(500).json({ error: `Re-upload failed: ${upErr.message}` })
     return res.status(200).json({ slug: book.slug, title: book.title, originalMB, compressedMB: newMB, savedMB: (parseFloat(originalMB) - parseFloat(newMB)).toFixed(2), removedImages, strippedMarkup })
+  }
+
+  // Featured book: POST /api/admin/books  { resource:'set-featured', slug }
+  if (req.method === 'POST' && (req.body ?? {}).resource === 'set-featured') {
+    const { slug } = req.body ?? {}
+    if (!slug) return res.status(400).json({ error: 'slug required' })
+    const cfg = Buffer.from(JSON.stringify({ featuredSlug: slug, pinned: true }))
+    const { error } = await supabase.storage.from('ebooks').upload('_config.json', cfg, { contentType: 'application/json', upsert: true })
+    if (error) return res.status(500).json({ error: error.message })
+    return res.status(200).json({ ok: true, featuredSlug: slug, pinned: true })
+  }
+
+  // Clear pin (resume rotation): POST /api/admin/books  { resource:'clear-featured' }
+  if (req.method === 'POST' && (req.body ?? {}).resource === 'clear-featured') {
+    const cfg = Buffer.from(JSON.stringify({ pinned: false }))
+    const { error } = await supabase.storage.from('ebooks').upload('_config.json', cfg, { contentType: 'application/json', upsert: true })
+    if (error) return res.status(500).json({ error: error.message })
+    return res.status(200).json({ ok: true, featuredSlug: null, pinned: false })
   }
 
   // Pen-name upsert: POST /api/admin/books  { resource:'pen-name', id, slug, name, ... }

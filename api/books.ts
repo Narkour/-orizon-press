@@ -21,6 +21,26 @@ const STATIC_PAGES = [
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCors(res)
   if (!handleOptions(req, res)) return
+
+  // Newsletter subscription: POST /api/books  { resource: 'subscribe', email }
+  if (req.method === 'POST') {
+    if (!rateLimit(req, res, { limit: 5, windowMs: 60_000, label: 'subscribe' })) return
+    const { resource, email } = req.body ?? {}
+    if (resource !== 'subscribe') return res.status(400).json({ error: 'Unknown resource' })
+    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return res.status(400).json({ error: 'Please enter a valid email address.' })
+    }
+    const { error } = await supabase
+      .from('subscribers')
+      .upsert({ email: email.toLowerCase().trim() }, { onConflict: 'email', ignoreDuplicates: true })
+    if (error) {
+      if (error.code === '42P01') return res.status(503).json({ error: 'newsletter_not_configured' })
+      console.error('[subscribe]', error)
+      return res.status(500).json({ error: 'Subscription failed. Please try again.' })
+    }
+    return res.status(200).json({ ok: true })
+  }
+
   if (req.method !== 'GET') return res.status(405).end()
   if (!rateLimit(req, res, { limit: 60, windowMs: 60_000, label: 'books' })) return
 
@@ -61,17 +81,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json(data ?? [])
   }
 
-  const { data, error } = await supabase
-    .from('books')
-    .select('*')
-    .eq('available', true)
-    .order('created_at', { ascending: true })
+  const [booksResult, configBlob] = await Promise.all([
+    supabase.from('books').select('*').eq('available', true).order('created_at', { ascending: true }),
+    supabase.storage.from('ebooks').download('_config.json').catch(() => null),
+  ])
 
-  if (error) {
-    console.error('[/api/books]', error)
-    return res.status(500).json({ error: error.message })
+  if (booksResult.error) {
+    console.error('[/api/books]', booksResult.error)
+    return res.status(500).json({ error: booksResult.error.message })
   }
 
+  const bookList = booksResult.data ?? []
+
+  // Determine featured book: manual pin takes priority, otherwise daily rotation
+  let featuredSlug: string | null = null
+  if (configBlob?.data) {
+    try {
+      const cfg = JSON.parse(await (configBlob.data as Blob).text())
+      if (cfg.pinned && cfg.featuredSlug) {
+        featuredSlug = cfg.featuredSlug
+      }
+    } catch {}
+  }
+  if (!featuredSlug && bookList.length > 0) {
+    // Rotate daily: days since Unix epoch mod number of books — same for every visitor
+    const dayIndex = Math.floor(Date.now() / 86_400_000)
+    featuredSlug = bookList[dayIndex % bookList.length].slug
+  }
+
+  const books = bookList.map(b => ({ ...b, featured: b.slug === featuredSlug }))
   res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
-  return res.status(200).json(data ?? [])
+  return res.status(200).json(books)
 }

@@ -13,6 +13,7 @@ export interface DbBook {
   pdf_path: string
   price: number
   available: boolean
+  featured?: boolean
   sample_text: string | null
   audio_price: number | null
   audio_available: boolean | null
@@ -26,12 +27,14 @@ export function mapBook(row: DbBook): Book {
     id: row.id,
     slug: row.slug,
     title: row.title,
+    author: row.author,
     penNameId: row.pen_name_id,
     genre: row.genre as Book['genre'],
     description: row.description || '',
     shortDescription: row.short_description || '',
     coverColor: '#1a1200',
     coverImage: row.cover_url || undefined,
+    featured: row.featured ?? false,
     ebook: {
       available: row.available && !!row.pdf_path,
       price: Number(row.price),

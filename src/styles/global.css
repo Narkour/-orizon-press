@@ -261,6 +261,73 @@ a { color: inherit; }
   .mobile-menu-btn { display: flex; align-items: center; }
 }
 
+/* ─── Featured book spotlight ──────────────────────────────────────────── */
+.spotlight-grid {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: 3rem;
+  align-items: start;
+}
+@media (max-width: 640px) {
+  .spotlight-grid {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
+  .spotlight-cover {
+    max-width: 160px;
+    margin: 0 auto;
+  }
+  .spotlight-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .spotlight-buy-btn {
+    display: block;
+    text-align: center;
+  }
+}
+
+/* ─── Newsletter ────────────────────────────────────────────────────────── */
+.newsletter-form {
+  display: flex;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.newsletter-input {
+  flex: 1;
+  padding: 0.85rem 1.25rem;
+  background: rgba(244, 239, 230, 0.1);
+  border: 1px solid rgba(244, 239, 230, 0.2);
+  border-right: none;
+  color: var(--parchment);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  outline: none;
+}
+.newsletter-input::placeholder { color: rgba(244, 239, 230, 0.35); }
+.newsletter-input:focus { border-color: rgba(196, 134, 42, 0.6); }
+.newsletter-submit {
+  padding: 0.85rem 1.75rem;
+  background: var(--gold);
+  color: var(--ink);
+  border: none;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--duration);
+}
+.newsletter-submit:hover:not(:disabled) { background: #a86e20; }
+.newsletter-submit:disabled { opacity: 0.6; cursor: default; }
+@media (max-width: 600px) {
+  .newsletter-form { flex-direction: column; }
+  .newsletter-input { border-right: 1px solid rgba(244, 239, 230, 0.2); border-bottom: none; }
+  .newsletter-submit { text-align: center; }
+}
+
 /* ─── Book detail responsive grid ──────────────────────────────────────── */
 .book-detail-grid {
   display: grid;

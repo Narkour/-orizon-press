@@ -21,6 +21,11 @@ export type Genre =
   | 'Health & Wellness'
   | 'Science & Society'
   | 'True Crime'
+  | 'Business & Finance'
+  | 'Technology & AI'
+  | 'Psychology'
+  | 'Politics'
+  | 'Cookbooks'
   // Specialist
   | 'African Spirituality & Consciousness'
   | 'Christian & Faith'
@@ -57,6 +62,11 @@ export const genreGroups: GenreGroup[] = [
       'Health & Wellness',
       'Science & Society',
       'True Crime',
+      'Business & Finance',
+      'Technology & AI',
+      'Psychology',
+      'Politics',
+      'Cookbooks',
     ],
   },
   {
@@ -107,6 +117,7 @@ export interface Book {
   slug: string;
   title: string;
   subtitle?: string;
+  author?: string;
   penNameId: string;
   genre: Genre;
   description: string;

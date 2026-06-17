@@ -355,6 +355,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'EPUB generation failed.' })
   }
 
+  // ── 4b. Auto-compress EPUB if over 20 MB ─────────────────
+  if (epubBytes.length > 20 * 1024 * 1024) {
+    try {
+      const { default: JSZip } = await import('jszip')
+      const zip = await JSZip.loadAsync(epubBytes)
+      for (const [fp, entry] of Object.entries(zip.files) as [string, any][]) {
+        if (entry.dir) continue
+        if (/\.(png|jpg|jpeg|gif|webp|svg|bmp|tiff?)$/i.test(fp)) { zip.remove(fp); continue }
+        if (/\.(xhtml|html|htm|opf|ncx|xml)$/i.test(fp)) {
+          const txt = await entry.async('string') as string
+          const clean = txt
+            .replace(/<img[^>]+src="data:[^"]*"[^>]*\/?>/gi, '')
+            .replace(/<img[^>]*>/gi, '')
+          if (clean !== txt) zip.file(fp, clean)
+        }
+      }
+      epubBytes = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } }) as Buffer
+    } catch (cErr) {
+      console.warn('[upload-book] EPUB auto-compress skipped:', cErr)
+    }
+  }
+
   // ── 5. Upload to Supabase Storage ─────────────────────────
   const pdfPath  = `${slug}.pdf`
   const epubPath = `${slug}.epub`

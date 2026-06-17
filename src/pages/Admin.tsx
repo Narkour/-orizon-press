@@ -9,6 +9,7 @@ interface BookRow {
   cover_url: string; price: number; created_at: string
   audio_price?: number | null; audio_available?: boolean | null
   description?: string | null; short_description?: string | null; tagline?: string | null
+  sample_text?: string | null; featured?: boolean
 }
 
 interface SegmentState {
@@ -102,6 +103,11 @@ const GENRES = [
   // Non-Fiction
   'Self-Help & Personal Growth',
   'Biography & Memoir',
+  'Business & Finance',
+  'Technology & AI',
+  'Psychology',
+  'Politics',
+  'Cookbooks',
   'Health & Wellness',
   'True Crime',
   'Science & Society',
@@ -491,6 +497,168 @@ function AudiobookSection({ adminKey }: { adminKey: string }) {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── Featured book ────────────────────────────────────────────────────────────
+function FeaturedBookSection({ adminKey }: { adminKey: string }) {
+  const [books, setBooks] = useState<BookRow[]>([])
+  const [pinnedSlug, setPinnedSlug] = useState<string | null>(null)
+  const [pinned, setPinned] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [working, setWorking] = useState<string | null>(null)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  useEffect(() => {
+    const headers = { Authorization: `Bearer ${adminKey}` }
+    Promise.all([
+      fetch('/api/admin/books', { headers }).then(r => r.json()),
+      fetch('/api/admin/books?resource=featured-config', { headers }).then(r => r.json()),
+    ]).then(([booksData, cfg]) => {
+      if (Array.isArray(booksData)) setBooks(booksData.filter((b: BookRow) => b.available))
+      setPinnedSlug(cfg.featuredSlug ?? null)
+      setPinned(cfg.pinned ?? false)
+    }).catch(() => setMsg({ ok: false, text: 'Failed to load books' }))
+      .finally(() => setLoading(false))
+  }, [adminKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setFeatured = async (slug: string) => {
+    setWorking(slug)
+    setMsg(null)
+    try {
+      const res = await fetch('/api/admin/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+        body: JSON.stringify({ resource: 'set-featured', slug }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? 'Failed')
+      setPinnedSlug(slug)
+      setPinned(true)
+      bustBooksCache()
+      setMsg({ ok: true, text: `"${books.find(b => b.slug === slug)?.title}" pinned as featured — overrides daily rotation.` })
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : 'Failed' })
+    } finally {
+      setWorking(null)
+    }
+  }
+
+  const clearPin = async () => {
+    setWorking('clear')
+    setMsg(null)
+    try {
+      const res = await fetch('/api/admin/books', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+        body: JSON.stringify({ resource: 'clear-featured' }),
+      })
+      if (!res.ok) throw new Error('Failed to clear pin')
+      setPinnedSlug(null)
+      setPinned(false)
+      bustBooksCache()
+      setMsg({ ok: true, text: 'Pin removed — daily rotation is now active.' })
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : 'Failed' })
+    } finally {
+      setWorking(null)
+    }
+  }
+
+  const eyebrow: React.CSSProperties = {
+    fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)',
+  }
+
+  // Compute today's auto-rotation book (same algorithm as the API)
+  const dayIndex = Math.floor(Date.now() / 86_400_000)
+  const autoBook = books.length > 0 ? books[dayIndex % books.length] : null
+  const pinnedBook = books.find(b => b.slug === pinnedSlug)
+
+  return (
+    <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2.5rem' }}>
+      <div style={{ ...eyebrow, marginBottom: '0.4rem' }}>Featured Book</div>
+      <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.5rem' }}>
+        The featured book rotates daily — a different book every 24 hours, cycling through all titles so every book gets exposure.
+        Pin a specific book to override the rotation for as long as you want.
+      </p>
+
+      {/* Status card */}
+      <div style={{ padding: '0.85rem 1rem', border: '1px solid var(--border)', background: 'var(--parchment)', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1 }}>
+          {loading ? (
+            <span style={{ fontSize: '0.82rem', color: 'var(--mist)' }}>Loading…</span>
+          ) : pinned && pinnedBook ? (
+            <>
+              <span style={{ fontSize: '0.6rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--gold)', display: 'block', marginBottom: 4 }}>Pinned (overriding rotation)</span>
+              <span style={{ fontSize: '0.9rem', fontFamily: 'var(--font-display)' }}>{pinnedBook.title}</span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: '0.6rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)', display: 'block', marginBottom: 4 }}>Auto-rotating — today's featured</span>
+              <span style={{ fontSize: '0.9rem', fontFamily: 'var(--font-display)' }}>{autoBook?.title ?? '—'}</span>
+            </>
+          )}
+        </div>
+        {pinned && (
+          <button
+            className="btn btn--outline"
+            style={{ fontSize: '0.68rem', flexShrink: 0 }}
+            disabled={working === 'clear'}
+            onClick={clearPin}
+          >
+            {working === 'clear' ? 'Removing…' : 'Remove pin — resume rotation'}
+          </button>
+        )}
+      </div>
+
+      {msg && (
+        <div style={{
+          padding: '0.6rem 0.85rem', fontSize: '0.8rem', marginBottom: '1rem',
+          background: msg.ok ? 'rgba(46,125,50,0.07)' : 'rgba(192,57,43,0.07)',
+          border: `1px solid ${msg.ok ? 'rgba(46,125,50,0.3)' : 'rgba(192,57,43,0.3)'}`,
+          color: msg.ok ? '#2e7d32' : '#c0392b',
+        }}>{msg.text}</div>
+      )}
+
+      {/* Book picker */}
+      {!loading && books.length > 0 && (
+        <div style={{ border: '1px solid var(--border)' }}>
+          {books.map((b, i) => {
+            const isToday = !pinned && b.slug === autoBook?.slug
+            const isPinned = pinned && b.slug === pinnedSlug
+            return (
+              <div
+                key={b.slug}
+                style={{
+                  display: 'grid', gridTemplateColumns: '1fr auto',
+                  gap: '1rem', alignItems: 'center',
+                  padding: '0.75rem 1rem',
+                  borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+                  background: isPinned ? 'rgba(196,134,42,0.08)' : isToday ? 'rgba(196,134,42,0.03)' : 'var(--parchment)',
+                }}
+              >
+                <div>
+                  <span style={{ fontSize: '0.88rem', fontFamily: 'var(--font-display)' }}>{b.title}</span>
+                  <span style={{ display: 'block', fontSize: '0.68rem', color: 'var(--mist)', marginTop: 2 }}>
+                    {b.author} · {b.genre}
+                    {isToday && <span style={{ marginLeft: 8, color: 'var(--gold)' }}>· today's auto-featured</span>}
+                    {isPinned && <span style={{ marginLeft: 8, color: 'var(--gold)' }}>· pinned</span>}
+                  </span>
+                </div>
+                <button
+                  className={isPinned ? 'btn btn--primary' : 'btn btn--outline'}
+                  style={{ fontSize: '0.68rem', flexShrink: 0 }}
+                  disabled={working === b.slug || isPinned}
+                  onClick={() => setFeatured(b.slug)}
+                >
+                  {working === b.slug ? 'Pinning…' : isPinned ? 'Pinned ✓' : 'Pin this book'}
+                </button>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -1015,6 +1183,7 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
   const [description, setDescription] = useState(book.description ?? '')
   const [shortDescription, setShortDescription] = useState(book.short_description ?? '')
   const [tagline, setTagline] = useState(book.tagline ?? '')
+  const [sampleText, setSampleText] = useState(book.sample_text ?? '')
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState(book.cover_url || '')
   const [saving, setSaving] = useState(false)
@@ -1044,6 +1213,7 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
           genre: selectedGenres.join(', '),
           price: parseFloat(price), available,
           description, short_description: shortDescription, tagline,
+          sample_text: sampleText || null,
         }),
       })
       if (!patchRes.ok) {
@@ -1067,7 +1237,7 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
       }
 
       bustBooksCache()
-      onSaved({ title, author, genre: selectedGenres.join(', '), price: parseFloat(price), available, description, short_description: shortDescription, tagline, cover_url: newCoverUrl })
+      onSaved({ title, author, genre: selectedGenres.join(', '), price: parseFloat(price), available, description, short_description: shortDescription, tagline, sample_text: sampleText || null, cover_url: newCoverUrl })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
@@ -1122,6 +1292,15 @@ function EditBookForm({ book, adminKey, onSaved, onCancel }: {
           value={description}
           onChange={e => setDescription(e.target.value)}
           placeholder="Full catalogue description"
+        />
+      </div>
+      <div style={{ marginBottom: '0.85rem' }}>
+        <label style={labelStyle}>First chapter sample text</label>
+        <textarea
+          style={{ ...inputStyle, height: 200, resize: 'vertical', fontFamily: 'Georgia, serif', fontSize: '0.83rem', lineHeight: 1.7 }}
+          value={sampleText}
+          onChange={e => setSampleText(e.target.value)}
+          placeholder="Paste the first chapter or opening pages here. Readers can preview this before buying."
         />
       </div>
 
@@ -1729,6 +1908,9 @@ export default function Admin() {
 
       {/* ── Book list — always visible ── */}
       {authed && <BookList adminKey={adminKey!} refreshKey={bookListKey} />}
+
+      {/* ── Featured book ── */}
+      <FeaturedBookSection adminKey={adminKey!} />
 
       {/* ── Audiobook generation ── */}
       <AudiobookSection adminKey={adminKey!} />
