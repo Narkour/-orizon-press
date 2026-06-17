@@ -1663,6 +1663,7 @@ export default function Admin() {
   const [file,         setFile]         = useState<File | null>(null)
   const [coverFile,    setCoverFile]    = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState('')
+  const [pdfOnly,      setPdfOnly]      = useState(false)
 
   // Upload state
   const [step,   setStep]   = useState<Step>('idle')
@@ -1711,9 +1712,12 @@ export default function Admin() {
     form.append('penNameId',  effectivePenNameId)
     form.append('genre',      genres.join(', '))
     form.append('price',      price)
+    form.append('pdfOnly',    pdfOnly ? '1' : '0')
     if (coverFile) form.append('cover', coverFile)
 
-    const stages: ProcessStage[] = ['extract','ai','pdf','epub','upload','save']
+    const stages: ProcessStage[] = pdfOnly
+      ? ['extract','ai','pdf','upload','save']
+      : ['extract','ai','pdf','epub','upload','save']
     let si = 0
     const ticker = setInterval(() => {
       si = Math.min(si + 1, stages.length - 1)
@@ -1795,7 +1799,7 @@ export default function Admin() {
     setStep('idle'); setStage(null); setResult(null); setErrMsg('')
     setTitle(''); setAuthorVal(''); setPenNameId('')
     setNewPenNameMode(false); setNewPenNameName('')
-    setGenres([]); setPrice('9.99'); setFile(null); setCoverFile(null); setCoverPreview('')
+    setGenres([]); setPrice('9.99'); setFile(null); setCoverFile(null); setCoverPreview(''); setPdfOnly(false)
     if (fileRef.current) fileRef.current.value = ''
     if (coverRef.current) coverRef.current.value = ''
   }
@@ -1951,6 +1955,27 @@ export default function Admin() {
             </label>
             <GenrePicker selected={genres} onChange={setGenres} />
           </div>
+
+          <label style={{
+            display: 'flex', alignItems: 'flex-start', gap: '0.6rem', cursor: 'pointer',
+            padding: '0.75rem 0.85rem', border: '1px solid var(--border)',
+            background: pdfOnly ? 'rgba(196,134,42,0.06)' : 'transparent',
+          }}>
+            <input
+              type="checkbox"
+              checked={pdfOnly}
+              onChange={e => setPdfOnly(e.target.checked)}
+              style={{ marginTop: 2, flexShrink: 0 }}
+            />
+            <span>
+              <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-body)', color: 'var(--ink)' }}>
+                Textbook or image-heavy book — generate PDF only, skip EPUB
+              </span>
+              <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--mist)', marginTop: '0.2rem' }}>
+                Use this for manuscripts with many embedded images. Prevents oversized or broken EPUBs.
+              </span>
+            </span>
+          </label>
 
           <button type="submit" className="btn btn--primary" disabled={!file}>
             Process Book

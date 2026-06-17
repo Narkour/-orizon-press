@@ -306,6 +306,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { title, author, penNameId, genre, price } = fields
+  const pdfOnly = fields.pdfOnly === '1'
   if (!title || !author || !genre || !price) {
     return res.status(400).json({ error: 'Missing required fields: title, author, genre, price' })
   }
@@ -346,54 +347,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'PDF generation failed.' })
   }
 
-  // ── 4. Generate EPUB ──────────────────────────────────────
-  let epubBytes: Buffer
-  try {
-    epubBytes = await generateEpub(title, author, htmlContent, metadata.description)
-  } catch (err) {
-    console.error('[upload-book] EPUB error:', err)
-    return res.status(500).json({ error: 'EPUB generation failed.' })
-  }
-
-  // ── 4b. Auto-compress EPUB if over 20 MB ─────────────────
-  if (epubBytes.length > 20 * 1024 * 1024) {
+  // ── 4. Generate EPUB (skipped when pdfOnly) ──────────────
+  let epubBytes: Buffer | null = null
+  if (!pdfOnly) {
     try {
-      const { default: JSZip } = await import('jszip')
-      const zip = await JSZip.loadAsync(epubBytes)
-      for (const [fp, entry] of Object.entries(zip.files) as [string, any][]) {
-        if (entry.dir) continue
-        if (/\.(png|jpg|jpeg|gif|webp|svg|bmp|tiff?)$/i.test(fp)) { zip.remove(fp); continue }
-        if (/\.(xhtml|html|htm|opf|ncx|xml)$/i.test(fp)) {
-          const txt = await entry.async('string') as string
-          const clean = txt
-            .replace(/<img[^>]+src="data:[^"]*"[^>]*\/?>/gi, '')
-            .replace(/<img[^>]*>/gi, '')
-          if (clean !== txt) zip.file(fp, clean)
+      epubBytes = await generateEpub(title, author, htmlContent, metadata.description)
+    } catch (err) {
+      console.error('[upload-book] EPUB error:', err)
+      return res.status(500).json({ error: 'EPUB generation failed.' })
+    }
+
+    // ── 4b. Auto-compress EPUB if over 20 MB ───────────────
+    if (epubBytes.length > 20 * 1024 * 1024) {
+      try {
+        const { default: JSZip } = await import('jszip')
+        const zip = await JSZip.loadAsync(epubBytes)
+        for (const [fp, entry] of Object.entries(zip.files) as [string, any][]) {
+          if (entry.dir) continue
+          if (/\.(png|jpg|jpeg|gif|webp|svg|bmp|tiff?)$/i.test(fp)) { zip.remove(fp); continue }
+          if (/\.(xhtml|html|htm|opf|ncx|xml)$/i.test(fp)) {
+            const txt = await entry.async('string') as string
+            const clean = txt
+              .replace(/<img[^>]+src="data:[^"]*"[^>]*\/?>/gi, '')
+              .replace(/<img[^>]*>/gi, '')
+            if (clean !== txt) zip.file(fp, clean)
+          }
         }
+        epubBytes = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } }) as Buffer
+      } catch (cErr) {
+        console.warn('[upload-book] EPUB auto-compress skipped:', cErr)
       }
-      epubBytes = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } }) as Buffer
-    } catch (cErr) {
-      console.warn('[upload-book] EPUB auto-compress skipped:', cErr)
     }
   }
 
   // ── 5. Upload to Supabase Storage ─────────────────────────
   const pdfPath  = `${slug}.pdf`
-  const epubPath = `${slug}.epub`
+  const epubPath = pdfOnly ? null : `${slug}.epub`
 
-  const [pdfUpload, epubUpload] = await Promise.all([
-    supabase.storage.from('ebooks').upload(pdfPath,  pdfBytes,  {
-      contentType: 'application/pdf',
-      upsert: true,
-    }),
-    supabase.storage.from('ebooks').upload(epubPath, epubBytes, {
-      contentType: 'application/epub+zip',
-      upsert: true,
-    }),
-  ])
+  const uploadJobs: Promise<{ error: { message: string } | null }>[] = [
+    supabase.storage.from('ebooks').upload(pdfPath, pdfBytes, { contentType: 'application/pdf', upsert: true }),
+  ]
+  if (epubBytes && epubPath) {
+    uploadJobs.push(
+      supabase.storage.from('ebooks').upload(epubPath, epubBytes, { contentType: 'application/epub+zip', upsert: true })
+    )
+  }
 
-  if (pdfUpload.error || epubUpload.error) {
-    const storageErr = pdfUpload.error?.message ?? epubUpload.error?.message
+  const uploadResults = await Promise.all(uploadJobs)
+  const storageErr = uploadResults.find(r => r.error)?.error?.message
+  if (storageErr) {
     console.error('[upload-book] Storage upload error:', storageErr)
     return res.status(500).json({ error: `Storage upload failed: ${storageErr}` })
   }
@@ -428,7 +430,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     description:       metadata.description,
     short_description: metadata.shortDescription,
     pdf_path:          pdfPath,
-    epub_path:         epubPath,
+    epub_path:         epubPath ?? null,
     price:             parsedPrice,
     available:         true,
     bisac_codes:       metadata.bisac,
@@ -454,7 +456,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   return res.status(200).json({
     book:     upserted,
     metadata: metadata,
-    files:    { pdf: pdfPath, epub: epubPath, cover: coverUrl ?? undefined },
-    message:  `Book "${title}" processed and saved.`,
+    files:    { pdf: pdfPath, epub: epubPath ?? undefined, cover: coverUrl ?? undefined },
+    message:  `Book "${title}" processed and saved${pdfOnly ? ' (PDF only — EPUB skipped)' : ''}.`,
   })
 }
