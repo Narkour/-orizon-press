@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { getAllGenres } from '../data/catalogue';
@@ -92,8 +92,42 @@ export default function Home() {
 
   const genres = getAllGenres();
 
+  const hasFeatured = !!featuredBook
+  const hasReleases = newReleases.length > 0
+  const [activeSection, setActiveSection] = useState(0)
+  const dotCount = 3 + (hasFeatured ? 1 : 0) + (hasReleases ? 1 : 0)
+
+  useEffect(() => {
+    const ids = ['section-hero']
+    if (hasFeatured) ids.push('section-featured')
+    if (hasReleases) ids.push('section-releases')
+    ids.push('section-catalogue', 'section-newsletter')
+
+    const ratios = new Map<string, number>()
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(e => ratios.set(e.target.id, e.intersectionRatio))
+        let bestIdx = 0, bestRatio = 0
+        ids.forEach((id, i) => {
+          const r = ratios.get(id) ?? 0
+          if (r > bestRatio) { bestRatio = r; bestIdx = i }
+        })
+        setActiveSection(bestIdx)
+      },
+      { threshold: [0, 0.1, 0.25, 0.5, 0.75, 1] }
+    )
+    ids.forEach(id => { const el = document.getElementById(id); if (el) observer.observe(el) })
+    return () => observer.disconnect()
+  }, [hasFeatured, hasReleases]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div>
+    <div style={{ overflowX: 'hidden' }}>
+      {/* Section indicator dots */}
+      <div className="section-dots" aria-hidden="true">
+        {Array.from({ length: dotCount }, (_, i) => (
+          <div key={i} className={`section-dot${i === activeSection ? ' active' : ''}`} />
+        ))}
+      </div>
       <Helmet>
         <title>Orizon Press | African Stories, History &amp; Spirituality</title>
         <meta name="description" content="Independent publisher of African history, consciousness, spirituality and fiction. Buy direct from Orizon Press." />
@@ -107,8 +141,11 @@ export default function Home() {
       </Helmet>
 
       {/* ── Hero ── */}
-      <section style={{
-        padding: '6rem 2rem 5rem',
+      <section id="section-hero" style={{
+        paddingTop: '6rem',
+        paddingBottom: '5rem',
+        paddingLeft: 'max(2rem, env(safe-area-inset-left))',
+        paddingRight: 'max(2rem, env(safe-area-inset-right))',
         background: 'var(--cream)',
         maxWidth: '800px',
         margin: '0 auto',
@@ -159,7 +196,7 @@ export default function Home() {
 
       {/* ── Featured Book Spotlight ── */}
       {featuredBook && (
-        <section style={{ background: 'var(--ink)', padding: 'clamp(2rem, 5vw, 4rem) 2rem' }}>
+        <section id="section-featured" style={{ background: 'var(--ink)', padding: 'clamp(2rem, 5vw, 4rem) 2rem' }}>
           <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
             <p style={{ fontSize: '0.65rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '2rem' }}>
               Featured Book
@@ -235,7 +272,7 @@ export default function Home() {
 
       {/* ── New Releases ── */}
       {newReleases.length > 0 && (
-        <section style={{ padding: '4rem 2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        <section id="section-releases" style={{ padding: '4rem 2rem', maxWidth: '1200px', margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
             <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '1.5rem', color: 'var(--ink)' }}>New Releases</h2>
             <Link to="/catalogue" style={{ color: 'var(--gold)', textDecoration: 'none', fontSize: '0.85rem' }}>View all →</Link>
@@ -247,7 +284,7 @@ export default function Home() {
       )}
 
       {/* ── Catalogue sample ── */}
-      <section style={{ padding: '4rem 2rem', maxWidth: '1200px', margin: '0 auto', borderTop: newReleases.length > 0 ? '1px solid var(--border)' : 'none' }}>
+      <section id="section-catalogue" style={{ padding: '4rem 2rem', maxWidth: '1200px', margin: '0 auto', borderTop: newReleases.length > 0 ? '1px solid var(--border)' : 'none' }}>
         <h2 style={{ fontFamily: 'Georgia, serif', fontSize: '1.5rem', marginBottom: '2rem', color: 'var(--ink)' }}>Featured Titles</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '2rem' }}>
           {catalogueSample.map(book => <BookCard key={book.id} book={book} />)}
@@ -258,7 +295,9 @@ export default function Home() {
       </section>
 
       {/* ── Newsletter ── */}
-      <NewsletterSection />
+      <div id="section-newsletter">
+        <NewsletterSection />
+      </div>
 
       {/* ── Social proof banner ── */}
       <section style={{ background: 'var(--parchment-mid)', padding: '2rem', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
