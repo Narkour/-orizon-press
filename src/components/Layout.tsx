@@ -277,7 +277,7 @@ export default function Layout() {
 
       <footer style={{ background: 'var(--ink)', color: 'var(--parchment)', marginTop: 'auto' }}>
         <div className="container" style={{ padding: '4rem 2rem 2rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '3rem', paddingBottom: '2.5rem', borderBottom: '1px solid rgba(244,239,230,0.1)' }}>
+          <div className="footer-grid">
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <span style={{ color: 'var(--gold)', fontSize: '1.6rem' }}>◈</span>

@@ -121,13 +121,14 @@ export default function Home() {
   }, [hasFeatured, hasReleases]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div style={{ overflowX: 'hidden' }}>
-      {/* Section indicator dots */}
+    <>
+      {/* Section indicator dots — outside overflow wrapper so iOS Safari doesn't clip fixed position */}
       <div className="section-dots" aria-hidden="true">
         {Array.from({ length: dotCount }, (_, i) => (
           <div key={i} className={`section-dot${i === activeSection ? ' active' : ''}`} />
         ))}
       </div>
+      <div style={{ overflowX: 'hidden' }}>
       <Helmet>
         <title>Orizon Press | African Stories, History &amp; Spirituality</title>
         <meta name="description" content="Independent publisher of African history, consciousness, spirituality and fiction. Buy direct from Orizon Press." />
@@ -349,6 +350,7 @@ export default function Home() {
           />
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }

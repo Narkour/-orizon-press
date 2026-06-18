@@ -88,18 +88,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       Date.now() + TOKEN_EXPIRY_HOURS * 60 * 60 * 1000
     ).toISOString()
 
-    const { error: insertError } = await supabase.from('orders').insert({
-      paypal_order_id: `redownload-${randomUUID()}`,
-      buyer_email: user.email,
-      book_slug: bookSlug,
-      book_title: '',
-      amount: 0,
-      download_token: downloadToken,
-      token_expires_at: tokenExpiresAt,
-    })
+    const { error: updateError } = await supabase
+      .from('orders')
+      .update({ download_token: downloadToken, token_expires_at: tokenExpiresAt })
+      .eq('id', order.id)
 
-    if (insertError) {
-      console.error('[my-library] redownload error:', insertError)
+    if (updateError) {
+      console.error('[my-library] redownload error:', updateError)
       return res.status(500).json({ error: 'Failed to prepare download' })
     }
 
