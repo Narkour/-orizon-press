@@ -37,7 +37,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         supabase.from('books').select('slug, pen_name_id'),
         supabase.from('pen_names').select('id, name'),
       ])
-      if (ordersResult.error) return res.status(500).json({ error: ordersResult.error.message })
+      if (ordersResult.error) {
+        console.error('[admin/orders] Supabase error:', ordersResult.error.message, ordersResult.error.code)
+        return res.status(500).json({ error: ordersResult.error.message, code: ordersResult.error.code })
+      }
+      console.log('[admin/orders] row count:', ordersResult.data?.length ?? 0)
       const bookPenMap = Object.fromEntries((booksResult.data ?? []).map(b => [b.slug, b.pen_name_id]))
       const penNameMap = Object.fromEntries((penNamesResult.data ?? []).map(p => [p.id, p.name]))
       const orders = (ordersResult.data ?? []).map(o => ({ ...o, pen_name: penNameMap[bookPenMap[o.book_slug]] ?? null }))

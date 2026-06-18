@@ -108,10 +108,12 @@ export default function Home() {
 
       {/* ── Hero ── */}
       <section style={{
-        padding: '6rem 2rem 4rem',
+        padding: '6rem 2rem 5rem',
         background: 'var(--cream)',
         maxWidth: '800px',
         margin: '0 auto',
+        position: 'relative',
+        minHeight: 'calc(100svh - var(--nav-height))',
       }}>
         <p style={{ fontSize: '0.75rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '1.5rem' }}>
           Orizon Press — Independent Publisher
@@ -147,7 +149,7 @@ export default function Home() {
           }}>Meet the Authors</Link>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: '3rem' }}>
+        <div style={{ position: 'absolute', bottom: '1.75rem', left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
           <div className="scroll-indicator" aria-hidden="true">
             <div className="scroll-indicator__chevron">&#8595;</div>
             <span className="scroll-indicator__label">Scroll</span>

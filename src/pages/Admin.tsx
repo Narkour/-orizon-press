@@ -693,10 +693,7 @@ function FeaturedBookSection({ adminKey }: { adminKey: string }) {
 }
 
 // ─── EPUB compressor ─────────────────────────────────────────────────────────
-const COMPRESS_TARGETS = [
-  { slug: 'lost-kingdoms-of-africa',  label: 'Lost Kingdoms of Africa' },
-  { slug: 'messengers-from-sirius',   label: 'Messengers from Sirius' },
-]
+const COMPRESS_TARGETS: { slug: string; label: string }[] = []
 
 function CompressEpubSection({ adminKey }: { adminKey: string }) {
   const [results, setResults] = useState<Record<string, { status: string; detail: string }>>({})
@@ -729,6 +726,8 @@ function CompressEpubSection({ adminKey }: { adminKey: string }) {
   const eyebrow: React.CSSProperties = {
     fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)',
   }
+
+  if (COMPRESS_TARGETS.length === 0) return null
 
   return (
     <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2.5rem' }}>
@@ -855,10 +854,19 @@ function SalesTracker({ adminKey }: { adminKey: string }) {
     fetch('/api/admin/books?resource=orders', { headers: { Authorization: `Bearer ${adminKey}` } })
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data)) setOrders(data)
-        else setError(data.error ?? 'Failed to load orders')
+        if (Array.isArray(data)) {
+          setOrders(data)
+        } else {
+          // Server returned an error object
+          const msg = data.error ?? 'Failed to load orders'
+          const code = data.code ?? ''
+          setError(code === '42P01'
+            ? 'Orders table not found in database — run migration to create it.'
+            : msg
+          )
+        }
       })
-      .catch(() => setError('Network error'))
+      .catch(() => setError('Network error — could not reach the orders endpoint'))
       .finally(() => setLoading(false))
   }, [adminKey])
 
@@ -904,6 +912,12 @@ function SalesTracker({ adminKey }: { adminKey: string }) {
       {error && (
         <div style={{ padding: '0.75rem 1rem', background: 'rgba(192,57,43,0.07)', border: '1px solid rgba(192,57,43,0.3)', fontSize: '0.82rem', color: '#c0392b', marginBottom: '1rem' }}>
           {error}
+        </div>
+      )}
+
+      {!error && orders.length === 0 && (
+        <div style={{ padding: '0.85rem 1rem', background: 'rgba(0,0,0,0.02)', border: '1px solid var(--border)', fontSize: '0.82rem', color: 'var(--mist)', marginBottom: '1.5rem' }}>
+          ✓ Orders table connected — no completed sales recorded yet. Orders appear here as soon as PayPal payments are captured.
         </div>
       )}
 
@@ -1731,8 +1745,19 @@ export default function Admin() {
         body:    form,
       })
       clearInterval(ticker)
-      const data = await r.json()
-      if (!r.ok) throw new Error(data.error ?? `Server error ${r.status}`)
+
+      let data: Record<string, unknown> = {}
+      try {
+        data = await r.json()
+      } catch {
+        // Vercel returned non-JSON — most likely 413 Request Entity Too Large
+        if (r.status === 413) {
+          throw new Error('File too large — DOCX must be under 4 MB. Remove embedded images in Word (Insert → Pictures → delete), then re-save.')
+        }
+        throw new Error(`Server error (HTTP ${r.status}) — check the file is a valid .docx under 4 MB.`)
+      }
+
+      if (!r.ok) throw new Error((data as { error?: string }).error ?? `Server error ${r.status}`)
 
       // Auto-create pen name profile if this is a new one
       if (newPenNameMode && newPenNameName.trim()) {

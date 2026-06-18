@@ -140,6 +140,7 @@ export default function Contact() {
         <meta property="og:description" content="Get in touch with Orizon Press — independent publisher based in Ghana." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/contact" />
+        <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
 
       <div className="container">
