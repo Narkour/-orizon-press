@@ -1746,9 +1746,9 @@ export default function Admin() {
       })
       clearInterval(ticker)
 
-      let data: Record<string, unknown> = {}
+      let rawData: { error?: string } & Partial<UploadResult> = {}
       try {
-        data = await r.json()
+        rawData = await r.json()
       } catch {
         // Vercel returned non-JSON — most likely 413 Request Entity Too Large
         if (r.status === 413) {
@@ -1757,7 +1757,8 @@ export default function Admin() {
         throw new Error(`Server error (HTTP ${r.status}) — check the file is a valid .docx under 4 MB.`)
       }
 
-      if (!r.ok) throw new Error((data as { error?: string }).error ?? `Server error ${r.status}`)
+      if (!r.ok) throw new Error(rawData.error ?? `Server error ${r.status}`)
+      const data = rawData as UploadResult
 
       // Auto-create pen name profile if this is a new one
       if (newPenNameMode && newPenNameName.trim()) {
