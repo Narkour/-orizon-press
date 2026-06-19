@@ -95,13 +95,10 @@ export default function Home() {
   const hasFeatured = !!featuredBook
   const hasReleases = newReleases.length > 0
   const [activeSection, setActiveSection] = useState(0)
-  const dotCount = 3 + (hasFeatured ? 1 : 0) + (hasReleases ? 1 : 0)
+  const dotCount = 5
 
   useEffect(() => {
-    const ids = ['section-hero']
-    if (hasFeatured) ids.push('section-featured')
-    if (hasReleases) ids.push('section-releases')
-    ids.push('section-catalogue', 'section-newsletter')
+    const ids = ['section-hero', 'section-featured', 'section-releases', 'section-catalogue', 'section-newsletter']
 
     const ratios = new Map<string, number>()
     const observer = new IntersectionObserver(
