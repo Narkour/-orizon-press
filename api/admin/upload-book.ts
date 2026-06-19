@@ -321,7 +321,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const result = await mammoth.convertToHtml(
       { buffer: docxBuffer },
-      { convertImage: mammoth.images.imgElement(async () => ({})) }
+      { convertImage: mammoth.images.imgElement(async () => ({ src: '' })) }
     )
     htmlContent = result.value.replace(/<img[^>]*>/gi, '')
     plainText = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()

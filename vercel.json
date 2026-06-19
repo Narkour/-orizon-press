@@ -2,9 +2,6 @@
   "functions": {
     "api/**/*.ts": {
       "maxDuration": 60
-    },
-    "api/admin/upload-book.ts": {
-      "maxDuration": 300
     }
   },
   "headers": [
