@@ -244,7 +244,7 @@ Generate the following metadata as JSON (no markdown, just the JSON object):
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
-export const maxDuration = 60
+export const maxDuration = 300
 export const config = { api: { bodyParser: false } }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -315,14 +315,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parsedPrice = parseFloat(price)
 
   // ── 1. Extract text from DOCX ─────────────────────────────
+  // Skip image extraction entirely — images are stripped anyway and slow down large DOCX files
   let htmlContent: string
   let plainText: string
   try {
-    const result = await mammoth.convertToHtml({ buffer: docxBuffer })
-    // Strip base64-embedded images — they bloat EPUBs to 30 MB+
-    htmlContent = result.value
-      .replace(/<img[^>]+src="data:[^"]*"[^>]*>/gi, '')
-      .replace(/<img[^>]*>/gi, '')
+    const result = await mammoth.convertToHtml(
+      { buffer: docxBuffer },
+      { convertImage: mammoth.images.imgElement(async () => ({})) }
+    )
+    htmlContent = result.value.replace(/<img[^>]*>/gi, '')
     plainText = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   } catch (err) {
     console.error('[upload-book] mammoth error:', err)
@@ -338,45 +339,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Metadata generation failed. Check ANTHROPIC_API_KEY.' })
   }
 
-  // ── 3. Generate PDF ───────────────────────────────────────
+  // ── 3 & 4. Generate PDF and EPUB in parallel ─────────────
   let pdfBytes: Buffer
+  let epubBytes: Buffer | null = null
   try {
-    pdfBytes = await generatePdf(title, author, htmlContent)
+    const results = await Promise.all([
+      generatePdf(title, author, htmlContent),
+      pdfOnly ? Promise.resolve(null) : generateEpub(title, author, htmlContent, metadata.description),
+    ])
+    pdfBytes = results[0]
+    epubBytes = results[1]
   } catch (err) {
-    console.error('[upload-book] PDF error:', err)
-    return res.status(500).json({ error: 'PDF generation failed.' })
+    console.error('[upload-book] PDF/EPUB generation error:', err)
+    return res.status(500).json({ error: 'File generation failed (PDF or EPUB).' })
   }
 
-  // ── 4. Generate EPUB (skipped when pdfOnly) ──────────────
-  let epubBytes: Buffer | null = null
-  if (!pdfOnly) {
+  // ── 4b. Auto-compress EPUB if over 20 MB ─────────────────
+  if (epubBytes && epubBytes.length > 20 * 1024 * 1024) {
     try {
-      epubBytes = await generateEpub(title, author, htmlContent, metadata.description)
-    } catch (err) {
-      console.error('[upload-book] EPUB error:', err)
-      return res.status(500).json({ error: 'EPUB generation failed.' })
-    }
-
-    // ── 4b. Auto-compress EPUB if over 20 MB ───────────────
-    if (epubBytes.length > 20 * 1024 * 1024) {
-      try {
-        const { default: JSZip } = await import('jszip')
-        const zip = await JSZip.loadAsync(epubBytes)
-        for (const [fp, entry] of Object.entries(zip.files) as [string, any][]) {
-          if (entry.dir) continue
-          if (/\.(png|jpg|jpeg|gif|webp|svg|bmp|tiff?)$/i.test(fp)) { zip.remove(fp); continue }
-          if (/\.(xhtml|html|htm|opf|ncx|xml)$/i.test(fp)) {
-            const txt = await entry.async('string') as string
-            const clean = txt
-              .replace(/<img[^>]+src="data:[^"]*"[^>]*\/?>/gi, '')
-              .replace(/<img[^>]*>/gi, '')
-            if (clean !== txt) zip.file(fp, clean)
-          }
+      const { default: JSZip } = await import('jszip')
+      const zip = await JSZip.loadAsync(epubBytes)
+      for (const [fp, entry] of Object.entries(zip.files) as [string, any][]) {
+        if (entry.dir) continue
+        if (/\.(png|jpg|jpeg|gif|webp|svg|bmp|tiff?)$/i.test(fp)) { zip.remove(fp); continue }
+        if (/\.(xhtml|html|htm|opf|ncx|xml)$/i.test(fp)) {
+          const txt = await entry.async('string') as string
+          const clean = txt
+            .replace(/<img[^>]+src="data:[^"]*"[^>]*\/?>/gi, '')
+            .replace(/<img[^>]*>/gi, '')
+          if (clean !== txt) zip.file(fp, clean)
         }
-        epubBytes = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } }) as Buffer
-      } catch (cErr) {
-        console.warn('[upload-book] EPUB auto-compress skipped:', cErr)
       }
+      epubBytes = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 9 } }) as Buffer
+    } catch (cErr) {
+      console.warn('[upload-book] EPUB auto-compress skipped:', cErr)
     }
   }
 

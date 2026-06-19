@@ -307,6 +307,14 @@ export default function Layout() {
                   My Library
                 </Link>
               </div>
+              <div style={{ marginBottom: '0.6rem' }}>
+                <a href="/opds" style={{ fontSize: '0.85rem', color: 'rgba(244,239,230,0.6)', textDecoration: 'none', transition: 'color var(--duration)' }}
+                  onMouseOver={e => (e.currentTarget.style.color = 'var(--parchment)')}
+                  onMouseOut={e => (e.currentTarget.style.color = 'rgba(244,239,230,0.6)')}
+                  title="Open in e-reader apps via OPDS">
+                  OPDS Catalogue
+                </a>
+              </div>
             </div>
             <div>
               <div style={{ fontSize: '0.62rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--gold)', marginBottom: '1rem' }}>Connect</div>
@@ -327,6 +335,12 @@ export default function Layout() {
                   onMouseOver={e => (e.currentTarget.style.color = 'var(--parchment)')}
                   onMouseOut={e => (e.currentTarget.style.color = 'rgba(244,239,230,0.6)')}>
                   Newsletter on Substack
+                </a>
+                <a href="https://patreon.com/orizonpress" target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: '0.85rem', color: 'rgba(244,239,230,0.6)', textDecoration: 'none', transition: 'color var(--duration)' }}
+                  onMouseOver={e => (e.currentTarget.style.color = 'var(--parchment)')}
+                  onMouseOut={e => (e.currentTarget.style.color = 'rgba(244,239,230,0.6)')}>
+                  Support on Patreon
                 </a>
               </div>
             </div>

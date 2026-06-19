@@ -61,6 +61,10 @@ export default function Catalogue() {
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/catalogue" />
         <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Book Catalogue | Orizon Press" />
+        <meta name="twitter:description" content="Browse all books published by Orizon Press across African history, spirituality, fiction and more." />
+        <meta name="twitter:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
 
       <div className="container">

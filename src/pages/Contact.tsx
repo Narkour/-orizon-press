@@ -141,6 +141,10 @@ export default function Contact() {
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/contact" />
         <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Contact | Orizon Press" />
+        <meta name="twitter:description" content="Get in touch with Orizon Press — independent publisher of African history, consciousness, spirituality, and fiction." />
+        <meta name="twitter:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
 
       <div className="container">

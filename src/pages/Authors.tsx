@@ -17,6 +17,10 @@ export default function Authors() {
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/authors" />
         <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Our Authors | Orizon Press" />
+        <meta name="twitter:description" content="Meet the authors behind Orizon Press — J.N. Nartey, JOJO Penwood, Ajona Penhart, and Ajora Kandasorey." />
+        <meta name="twitter:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
       <div className="container">
         <div style={{ padding:'2rem 0 3rem', maxWidth:640 }}>

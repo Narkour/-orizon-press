@@ -833,6 +833,13 @@ export default function BookDetail() {
           ? <meta property="og:image" content={book.coverImage} />
           : <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
         }
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`${book.title} | Orizon Press`} />
+        <meta name="twitter:description" content={book.shortDescription ?? book.description} />
+        {book.coverImage
+          ? <meta name="twitter:image" content={book.coverImage} />
+          : <meta name="twitter:image" content="https://orizonpress.com/icons/icon-512.png" />
+        }
       </Helmet>
 
       <div className="container">

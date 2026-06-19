@@ -24,6 +24,10 @@ export default function BlogPost() {
         <meta property="article:author" content={post.author} />
         <meta property="article:published_time" content={post.date} />
         <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={`${post.title} | Orizon Press`} />
+        <meta name="twitter:description" content={post.excerpt} />
+        <meta name="twitter:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
 
       <div className="container">

@@ -12,6 +12,10 @@ export default function About() {
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/about" />
         <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="About Orizon Press | Independent African Publisher" />
+        <meta name="twitter:description" content="Orizon Press is an independent publisher of African history, consciousness, spirituality, and literary fiction — named for Ori, the Yoruba concept of personal divine consciousness." />
+        <meta name="twitter:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
       <div className="container">
         <div style={{ padding: '2rem 0 3rem', maxWidth: 600 }}>
@@ -117,6 +121,14 @@ export default function About() {
                 className="btn btn--outline"
               >
                 Subscribe on Substack
+              </a>
+              <a
+                href="https://patreon.com/orizonpress"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn--outline"
+              >
+                Support on Patreon
               </a>
             </div>
           </div>

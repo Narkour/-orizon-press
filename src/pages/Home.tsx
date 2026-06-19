@@ -136,6 +136,10 @@ export default function Home() {
         <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
         <meta property="og:image:width" content="512" />
         <meta property="og:image:height" content="512" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Orizon Press | African Stories, History & Spirituality" />
+        <meta name="twitter:description" content="Independent publisher of African history, consciousness, spirituality and fiction. Buy direct from Orizon Press." />
+        <meta name="twitter:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
 
       {/* ── Hero ── */}

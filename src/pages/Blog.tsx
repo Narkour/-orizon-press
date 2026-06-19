@@ -19,6 +19,10 @@ export default function Blog() {
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://orizonpress.com/blog" />
         <meta property="og:image" content="https://orizonpress.com/icons/icon-512.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Blog | Orizon Press" />
+        <meta name="twitter:description" content="Essays and insights on African history, spirituality, consciousness, and fiction." />
+        <meta name="twitter:image" content="https://orizonpress.com/icons/icon-512.png" />
       </Helmet>
 
       <div className="container">
