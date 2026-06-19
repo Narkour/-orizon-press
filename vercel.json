@@ -24,7 +24,7 @@
   "rewrites": [
     { "source": "/api/(.*)",              "destination": "/api/$1" },
     { "source": "/sitemap.xml",           "destination": "/api/books?format=sitemap" },
-    { "source": "/rss.xml",              "destination": "/api/rss" },
+    { "source": "/rss.xml",              "destination": "/api/books?format=rss" },
     { "source": "/opds/catalogue",        "destination": "/api/opds/catalogue" },
     { "source": "/opds",                  "destination": "/api/opds" },
     { "source": "/(.*)",                  "destination": "/index.html" }
