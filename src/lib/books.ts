@@ -20,6 +20,7 @@ export interface DbBook {
   audio_chapters: AudioChapter[] | null
   created_at: string
   updated_at: string
+  language?: string | null
 }
 
 export function mapBook(row: DbBook): Book {
@@ -46,6 +47,7 @@ export function mapBook(row: DbBook): Book {
       chapters: row.audio_chapters ?? [],
     },
     sampleText: row.sample_text ?? undefined,
+    language: row.language ?? undefined,
   }
 }
 

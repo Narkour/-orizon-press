@@ -12,6 +12,13 @@ const supabase = createClient(
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! })
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+  )
+  return Promise.race([promise, timeout])
+}
+
 function slugify(title: string): string {
   return title
     .toLowerCase()
@@ -305,7 +312,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
   }
 
-  const { title, author, penNameId, genre, price } = fields
+  const { title, author, penNameId, genre, price, language } = fields
   const pdfOnly = fields.pdfOnly === '1'
   if (!title || !author || !genre || !price) {
     return res.status(400).json({ error: 'Missing required fields: title, author, genre, price' })
@@ -315,14 +322,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const parsedPrice = parseFloat(price)
 
   // ── 1. Extract text from DOCX ─────────────────────────────
-  // Skip image extraction entirely — images are stripped anyway and slow down large DOCX files
   let htmlContent: string
   let plainText: string
   try {
-    const result = await mammoth.convertToHtml(
-      { buffer: docxBuffer },
-      { convertImage: mammoth.images.imgElement(async () => ({ src: '' })) }
-    )
+    // Strip images from the DOCX ZIP before passing to mammoth so it never
+    // decodes image bytes — prevents memory spikes on image-heavy manuscripts.
+    const { default: JSZip } = await import('jszip')
+    const zip = await JSZip.loadAsync(docxBuffer)
+    const mediaPaths: string[] = []
+    zip.forEach((p) => { if (p.startsWith('word/media/')) mediaPaths.push(p) })
+    for (const p of mediaPaths) zip.remove(p)
+    const cleanDocx = await zip.generateAsync({ type: 'nodebuffer' }) as Buffer
+
+    const result = await Promise.race([
+      mammoth.convertToHtml({ buffer: cleanDocx }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('mammoth timed out after 25s')), 25_000)
+      ),
+    ])
     htmlContent = result.value.replace(/<img[^>]*>/gi, '')
     plainText = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
   } catch (err) {
@@ -343,10 +360,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   let pdfBytes: Buffer
   let epubBytes: Buffer | null = null
   try {
-    const results = await Promise.all([
-      generatePdf(title, author, htmlContent),
-      pdfOnly ? Promise.resolve(null) : generateEpub(title, author, htmlContent, metadata.description),
-    ])
+    const results = await withTimeout(
+      Promise.all([
+        generatePdf(title, author, htmlContent),
+        pdfOnly ? Promise.resolve(null) : generateEpub(title, author, htmlContent, metadata.description),
+      ]),
+      30_000,
+      'PDF/EPUB generation'
+    )
     pdfBytes = results[0]
     epubBytes = results[1]
   } catch (err) {
@@ -432,6 +453,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     bisac_codes:       metadata.bisac,
     seo_keywords:      metadata.seoKeywords,
     tagline:           metadata.tagline,
+    language:          language || 'en',
   }
   if (coverUrl !== null) record.cover_url = coverUrl
 

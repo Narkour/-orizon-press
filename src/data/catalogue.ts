@@ -3,34 +3,70 @@
 // ============================================
 
 export type Genre =
-  // Fiction & Literature
+  // African Heritage
+  | 'African History'
+  | 'African Spirituality & Consciousness'
+  | 'African Philosophy & Culture'
+  | 'Pan-Africanism & Black Studies'
+  | 'African Mythology & Folklore'
+  | 'African Politics & Society'
+  | 'Ancient Civilizations'
+  // Fiction
   | 'Literary Fiction'
+  | 'Historical Fiction'
   | 'Romance'
   | 'Crime & Thriller'
   | 'Legal & Courtroom Drama'
   | 'Mystery'
-  | 'Historical Fiction'
   | 'Science Fiction & Fantasy'
+  | 'Horror'
+  | 'Short Stories & Anthologies'
+  // Children's & Young Adult
   | "Children's Fiction"
-  // Non-Fiction
-  | 'African History'
-  | 'Biography & Memoir'
-  | 'Self-Help & Personal Growth'
-  | 'Education & Textbooks'
-  | 'Religion & Spirituality'
-  | 'Health & Wellness'
-  | 'Science & Society'
-  | 'True Crime'
-  | 'Business & Finance'
-  | 'Technology & AI'
-  | 'Psychology'
-  | 'Politics'
-  | 'Cookbooks'
-  // Specialist
-  | 'African Spirituality & Consciousness'
-  | 'Christian & Faith'
   | "Children's Books"
-  | 'Young Adult';
+  | 'Young Adult'
+  | 'Middle Grade'
+  // Spirituality & Religion
+  | 'Religion & Spirituality'
+  | 'Christian & Faith'
+  | 'Biblical Studies'
+  | 'Metaphysics & Philosophy'
+  | 'Astrology & Divination'
+  | 'New Age & Occult'
+  | 'Mythology & Ancient Wisdom'
+  | 'Eastern Spirituality'
+  // Mind, Body & Self
+  | 'Self-Help & Personal Growth'
+  | 'Psychology'
+  | 'Health & Wellness'
+  | 'Mindfulness & Meditation'
+  | 'Parenting & Family'
+  | 'Relationships & Dating'
+  // Society & History
+  | 'Biography & Memoir'
+  | 'History'
+  | 'Politics'
+  | 'True Crime'
+  | 'Science & Society'
+  | 'Education & Textbooks'
+  // Business & Careers
+  | 'Business & Finance'
+  | 'Entrepreneurship'
+  | 'Leadership & Management'
+  | 'Technology & AI'
+  | 'Personal Finance & Investing'
+  // Arts & Culture
+  | 'Poetry'
+  | 'Drama & Theatre'
+  | 'Cookbooks'
+  | 'Travel & Adventure'
+  | 'Art & Photography'
+  // Specialist
+  | 'Academic & Research'
+  | 'Law & Legal Studies'
+  | 'Environment & Sustainability'
+  | 'Sports & Fitness'
+  | 'Music & Performance';
 
 export interface GenreGroup {
   label: string;
@@ -39,43 +75,103 @@ export interface GenreGroup {
 
 export const genreGroups: GenreGroup[] = [
   {
-    label: 'Fiction & Literature',
+    label: 'African Heritage',
+    genres: [
+      'African History',
+      'African Spirituality & Consciousness',
+      'African Philosophy & Culture',
+      'Pan-Africanism & Black Studies',
+      'African Mythology & Folklore',
+      'African Politics & Society',
+      'Ancient Civilizations',
+    ],
+  },
+  {
+    label: 'Fiction',
     genres: [
       'Literary Fiction',
+      'Historical Fiction',
       'Romance',
       'Crime & Thriller',
       'Legal & Courtroom Drama',
       'Mystery',
-      'Historical Fiction',
       'Science Fiction & Fantasy',
-      "Children's Fiction",
+      'Horror',
+      'Short Stories & Anthologies',
     ],
   },
   {
-    label: 'Non-Fiction',
+    label: "Children's & Young Adult",
     genres: [
-      'African History',
-      'Biography & Memoir',
-      'Self-Help & Personal Growth',
-      'Education & Textbooks',
+      "Children's Fiction",
+      "Children's Books",
+      'Young Adult',
+      'Middle Grade',
+    ],
+  },
+  {
+    label: 'Spirituality & Religion',
+    genres: [
       'Religion & Spirituality',
-      'Health & Wellness',
-      'Science & Society',
-      'True Crime',
-      'Business & Finance',
-      'Technology & AI',
+      'Christian & Faith',
+      'Biblical Studies',
+      'Metaphysics & Philosophy',
+      'Astrology & Divination',
+      'New Age & Occult',
+      'Mythology & Ancient Wisdom',
+      'Eastern Spirituality',
+    ],
+  },
+  {
+    label: 'Mind, Body & Self',
+    genres: [
+      'Self-Help & Personal Growth',
       'Psychology',
+      'Health & Wellness',
+      'Mindfulness & Meditation',
+      'Parenting & Family',
+      'Relationships & Dating',
+    ],
+  },
+  {
+    label: 'Society & History',
+    genres: [
+      'Biography & Memoir',
+      'History',
       'Politics',
+      'True Crime',
+      'Science & Society',
+      'Education & Textbooks',
+    ],
+  },
+  {
+    label: 'Business & Careers',
+    genres: [
+      'Business & Finance',
+      'Entrepreneurship',
+      'Leadership & Management',
+      'Technology & AI',
+      'Personal Finance & Investing',
+    ],
+  },
+  {
+    label: 'Arts & Culture',
+    genres: [
+      'Poetry',
+      'Drama & Theatre',
       'Cookbooks',
+      'Travel & Adventure',
+      'Art & Photography',
     ],
   },
   {
     label: 'Specialist',
     genres: [
-      'African Spirituality & Consciousness',
-      'Christian & Faith',
-      "Children's Books",
-      'Young Adult',
+      'Academic & Research',
+      'Law & Legal Studies',
+      'Environment & Sustainability',
+      'Sports & Fitness',
+      'Music & Performance',
     ],
   },
 ];
@@ -120,6 +216,7 @@ export interface Book {
   author?: string;
   penNameId: string;
   genre: Genre;
+  language?: string;
   description: string;
   shortDescription: string;
   excerpt?: string;
@@ -324,6 +421,7 @@ export const books: Book[] = [
     title: 'Chronicles of Ancient Africa: A Timeless Journey',
     penNameId: 'jn-nartey',
     genre: 'African History',
+    language: 'en',
     coverColor: '#3d1f00',
     coverImage: '/covers/chronicles-english.png',
     shortDescription: 'A sweeping history that restores Africa\'s rightful place at the centre of the human story.',
@@ -341,6 +439,7 @@ export const books: Book[] = [
     title: 'Chroniques de l\'Afrique Ancienne: Un Voyage Intemporel',
     penNameId: 'jn-nartey',
     genre: 'African History',
+    language: 'fr',
     coverColor: '#3d1f00',
     coverImage: '/covers/chronicles-french.png',
     shortDescription: 'L\'édition française de Chronicles of Ancient Africa — une célébration de l\'histoire africaine.',

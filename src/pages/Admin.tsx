@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { bustBooksCache } from '../hooks/useBooks'
 import { usePenNames, bustPenNamesCache } from '../hooks/usePenNames'
+import { genreGroups } from '../data/catalogue'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface BookRow {
@@ -85,38 +86,7 @@ const STAGE_LABELS: Record<ProcessStage, string> = {
 }
 const STAGE_ORDER: ProcessStage[] = ['extract','ai','pdf','epub','upload','save','done']
 
-const GENRES = [
-  // African
-  'African History',
-  'African Spirituality & Consciousness',
-  // Fiction
-  'Literary Fiction',
-  'Historical Fiction',
-  'Romance',
-  'Crime & Thriller',
-  'Mystery',
-  'Legal & Courtroom Drama',
-  'Science Fiction & Fantasy',
-  "Children's Fiction",
-  "Children's Books",
-  'Young Adult',
-  // Non-Fiction
-  'Self-Help & Personal Growth',
-  'Biography & Memoir',
-  'Business & Finance',
-  'Technology & AI',
-  'Psychology',
-  'Politics',
-  'Cookbooks',
-  'Health & Wellness',
-  'True Crime',
-  'Science & Society',
-  'Religion & Spirituality',
-  'Christian & Faith',
-  'Biblical Studies',
-  'Education & Textbooks',
-  'Metaphysics & Philosophy',
-]
+const GENRES = genreGroups.flatMap(g => g.genres)
 
 function GenrePicker({ selected, onChange }: { selected: string[]; onChange: (v: string[]) => void }) {
   const toggle = (g: string) =>
@@ -1672,7 +1642,8 @@ export default function Admin() {
   const [penNameId,    setPenNameId]    = useState('')
   const [newPenNameMode, setNewPenNameMode] = useState(false)
   const [newPenNameName, setNewPenNameName] = useState('')
-  const [genres,       setGenres]       = useState<string[]>([])
+  const [genre,        setGenre]        = useState('')
+  const [language,     setLanguage]     = useState('en')
   const [price,        setPrice]        = useState('9.99')
   const [file,         setFile]         = useState<File | null>(null)
   const [coverFile,    setCoverFile]    = useState<File | null>(null)
@@ -1708,7 +1679,7 @@ export default function Admin() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file || !title || genres.length === 0 || !adminKey) return
+    if (!file || !title || !genre || !adminKey) return
 
     const effectivePenNameId = newPenNameMode
       ? clientSlugify(newPenNameName || authorVal)
@@ -1724,7 +1695,8 @@ export default function Admin() {
     form.append('title',      title)
     form.append('author',     authorVal)
     form.append('penNameId',  effectivePenNameId)
-    form.append('genre',      genres.join(', '))
+    form.append('genre',      genre)
+    form.append('language',   language)
     form.append('price',      price)
     form.append('pdfOnly',    pdfOnly ? '1' : '0')
     if (coverFile) form.append('cover', coverFile)
@@ -1773,7 +1745,7 @@ export default function Admin() {
             name: newPenNameName.trim(),
             bio: 'Bio coming soon.',
             short_bio: 'A writer at Orizon Press.',
-            genres: genres.length > 0 ? genres : [],
+            genres: genre ? [genre] : [],
             accent_color: '#8B7355',
           }),
         }).catch(() => {})
@@ -1825,7 +1797,7 @@ export default function Admin() {
     setStep('idle'); setStage(null); setResult(null); setErrMsg('')
     setTitle(''); setAuthorVal(''); setPenNameId('')
     setNewPenNameMode(false); setNewPenNameName('')
-    setGenres([]); setPrice('9.99'); setFile(null); setCoverFile(null); setCoverPreview(''); setPdfOnly(false)
+    setGenre(''); setLanguage('en'); setPrice('9.99'); setFile(null); setCoverFile(null); setCoverPreview(''); setPdfOnly(false)
     if (fileRef.current) fileRef.current.value = ''
     if (coverRef.current) coverRef.current.value = ''
   }
@@ -1975,11 +1947,44 @@ export default function Admin() {
             </div>
           </div>
 
-          <div>
-            <label style={labelStyle}>
-              Genre{genres.length > 0 ? ` — ${genres.length} selected` : ' — select at least one'}
-            </label>
-            <GenrePicker selected={genres} onChange={setGenres} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <div>
+              <label style={labelStyle}>Genre{genre ? '' : ' — required'}</label>
+              <select
+                style={inputStyle}
+                value={genre}
+                onChange={e => setGenre(e.target.value)}
+                required
+              >
+                <option value="">— select genre —</option>
+                {genreGroups.map(group => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.genres.map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Language</label>
+              <select
+                style={inputStyle}
+                value={language}
+                onChange={e => setLanguage(e.target.value)}
+              >
+                <option value="en">English</option>
+                <option value="fr">French</option>
+                <option value="es">Spanish</option>
+                <option value="de">German</option>
+                <option value="pt">Portuguese</option>
+                <option value="ar">Arabic</option>
+                <option value="sw">Swahili</option>
+                <option value="ha">Hausa</option>
+                <option value="yo">Yoruba</option>
+                <option value="ig">Igbo</option>
+              </select>
+            </div>
           </div>
 
           <label style={{

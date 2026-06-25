@@ -40,17 +40,6 @@ export default function Catalogue() {
     flexShrink: 0,
   }
 
-  const groupLabelStyle: React.CSSProperties = {
-    fontSize: '0.58rem',
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    color: 'var(--mist)',
-    paddingTop: '0.2rem',
-    minWidth: 120,
-    flexShrink: 0,
-    opacity: 0.7,
-  }
-
   return (
     <div style={{ padding: '3rem 0 5rem' }}>
       <Helmet>
@@ -77,39 +66,35 @@ export default function Catalogue() {
         {/* Filters */}
         <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '1.5rem 0', marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
-          {/* Genre — grouped */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1.5rem', flexWrap: 'wrap' }}>
+          {/* Genre — compact select */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
             <span style={labelStyle}>Genre</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', flex: 1 }}>
-              {/* All button */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-                <button
-                  className={`genre-tag${!activeGenre ? ' active' : ''}`}
-                  onClick={() => setGenre(null)}
-                  style={{ fontWeight: !activeGenre ? 600 : undefined }}
-                >
-                  All
-                </button>
-              </div>
-
-              {/* Grouped genre rows */}
+            <select
+              value={activeGenre ?? ''}
+              onChange={e => setGenre(e.target.value ? e.target.value as Genre : null)}
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.85rem',
+                padding: '0.5rem 1rem',
+                border: '1px solid var(--border)',
+                background: 'var(--parchment)',
+                color: 'var(--ink)',
+                outline: 'none',
+                minWidth: 220,
+                maxWidth: '100%',
+              }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+            >
+              <option value="">All Genres</option>
               {genreGroups.map(group => (
-                <div key={group.label} className="genre-filter-group">
-                  <span className="genre-filter-group-label">{group.label}</span>
-                  <div className="genre-filter-group-pills">
-                    {group.genres.map(g => (
-                      <button
-                        key={g}
-                        className={`genre-tag${activeGenre === g ? ' active' : ''}`}
-                        onClick={() => setGenre(g)}
-                      >
-                        {g}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <optgroup key={group.label} label={group.label}>
+                  {group.genres.map(g => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </optgroup>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Author filter */}

@@ -9,7 +9,7 @@ export default function BookCard({ book, index = 0 }: { book: Book; index?: numb
 
   return (
     <Link to={`/books/${book.slug}`} className="book-card fade-up" style={{ animationDelay: `${delay}s` }}>
-      <div className="book-cover" style={{ background: book.coverColor, maxWidth: '180px', margin: '0 auto' }}>
+      <div className="book-cover" style={{ background: book.coverColor, maxWidth: '180px', margin: '0 auto', position: 'relative' }}>
         {book.coverImage ? (
           <img
             src={book.coverImage}
@@ -33,6 +33,22 @@ export default function BookCard({ book, index = 0 }: { book: Book; index?: numb
             <span className="book-cover__author">{penName?.name}</span>
             <div style={{ position:'absolute', inset:0, background:'radial-gradient(circle at 30% 20%, rgba(255,255,255,0.07) 0, transparent 60%)', pointerEvents:'none' }} />
           </div>
+        )}
+        {book.language && book.language !== 'en' && (
+          <span style={{
+            position: 'absolute', top: 8, right: 8,
+            fontSize: '0.55rem', letterSpacing: '0.12em',
+            fontFamily: 'var(--font-body)',
+            background: 'var(--gold)',
+            color: 'var(--parchment)',
+            padding: '0.15rem 0.4rem',
+            textTransform: 'uppercase',
+            fontWeight: 700,
+            pointerEvents: 'none',
+            zIndex: 2,
+          }}>
+            {book.language.toUpperCase()}
+          </span>
         )}
       </div>
       <div className="book-info">
