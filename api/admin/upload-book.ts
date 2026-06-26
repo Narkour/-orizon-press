@@ -273,6 +273,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const allowedImageTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
 
+  // ── File size guard ───────────────────────────────────────────────────────────
+  const isPdf = parsed.files['file']?.filename?.toLowerCase().endsWith('.pdf')
+  const maxSize = isPdf ? 50 * 1024 * 1024 : 10 * 1024 * 1024
+  if ((parsed.files['file']?.buffer?.length ?? 0) > maxSize) {
+    return res.status(400).json({ error: 'File too large. DOCX max 10 MB, PDF max 50 MB.' })
+  }
+
   // ── Cover-only update (no DOCX) ───────────────────────────────────────────────
   if (!parsed.files['file']) {
     if (!fields.slug || !coverFile) {
@@ -298,12 +305,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({ coverUrl: publicUrl, message: 'Cover updated.' })
   }
 
-  // ── Full book upload (DOCX required) ─────────────────────────────────────────
-  const docxBuffer = parsed.files['file'].buffer
+  // ── Full book upload (DOCX or PDF) ───────────────────────────────────────────
+  const fileBuffer = parsed.files['file'].buffer
   const filename = parsed.files['file'].filename
 
-  if (!filename.toLowerCase().endsWith('.docx')) {
-    return res.status(400).json({ error: 'File must be a .docx document.' })
+  if (!filename.toLowerCase().endsWith('.docx') && !filename.toLowerCase().endsWith('.pdf')) {
+    return res.status(400).json({ error: 'File must be a .docx or .pdf document.' })
   }
 
   if (coverFile) {
@@ -313,7 +320,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { title, author, penNameId, genre, price, language } = fields
-  const pdfOnly = fields.pdfOnly === '1'
+  const pdfOnly = !!isPdf || fields.pdfOnly === '1'
   if (!title || !author || !genre || !price) {
     return res.status(400).json({ error: 'Missing required fields: title, author, genre, price' })
   }
@@ -321,30 +328,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const slug = slugify(title)
   const parsedPrice = parseFloat(price)
 
-  // ── 1. Extract text from DOCX ─────────────────────────────
+  // ── 1. Extract text (DOCX) or use title+description (PDF) ─
   let htmlContent: string
   let plainText: string
-  try {
-    // Strip images from the DOCX ZIP before passing to mammoth so it never
-    // decodes image bytes — prevents memory spikes on image-heavy manuscripts.
-    const { default: JSZip } = await import('jszip')
-    const zip = await JSZip.loadAsync(docxBuffer)
-    const mediaPaths: string[] = []
-    zip.forEach((p) => { if (p.startsWith('word/media/')) mediaPaths.push(p) })
-    for (const p of mediaPaths) zip.remove(p)
-    const cleanDocx = await zip.generateAsync({ type: 'nodebuffer' }) as Buffer
+  let directPdfBuffer: Buffer | null = null
 
-    const result = await Promise.race([
-      mammoth.convertToHtml({ buffer: cleanDocx }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('mammoth timed out after 25s')), 25_000)
-      ),
-    ])
-    htmlContent = result.value.replace(/<img[^>]*>/gi, '')
-    plainText = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-  } catch (err) {
-    console.error('[upload-book] mammoth error:', err)
-    return res.status(422).json({ error: 'Could not read DOCX file. Ensure it is a valid .docx format.' })
+  if (isPdf) {
+    directPdfBuffer = fileBuffer
+    htmlContent = ''
+    plainText = title + ' ' + (fields.description || '')
+  } else {
+    try {
+      // Strip images from the DOCX ZIP before passing to mammoth so it never
+      // decodes image bytes — prevents memory spikes on image-heavy manuscripts.
+      const { default: JSZip } = await import('jszip')
+      const zip = await JSZip.loadAsync(fileBuffer)
+      const mediaPaths: string[] = []
+      zip.forEach((p) => { if (p.startsWith('word/media/')) mediaPaths.push(p) })
+      for (const p of mediaPaths) zip.remove(p)
+      const cleanDocx = await zip.generateAsync({ type: 'nodebuffer' }) as Buffer
+
+      const result = await Promise.race([
+        mammoth.convertToHtml({ buffer: cleanDocx }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('mammoth timed out after 25s')), 25_000)
+        ),
+      ])
+      htmlContent = result.value.replace(/<img[^>]*>/gi, '')
+      plainText = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    } catch (err) {
+      console.error('[upload-book] mammoth error:', err)
+      return res.status(422).json({ error: 'Could not read DOCX file. Ensure it is a valid .docx format.' })
+    }
   }
 
   // ── 2. Generate metadata via Claude ──────────────────────
@@ -356,23 +371,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'Metadata generation failed. Check ANTHROPIC_API_KEY.' })
   }
 
-  // ── 3 & 4. Generate PDF and EPUB in parallel ─────────────
+  // ── 3 & 4. Generate PDF and EPUB ─────────────────────────
   let pdfBytes: Buffer
   let epubBytes: Buffer | null = null
-  try {
-    const results = await withTimeout(
-      Promise.all([
-        generatePdf(title, author, htmlContent),
-        pdfOnly ? Promise.resolve(null) : generateEpub(title, author, htmlContent, metadata.description),
-      ]),
-      30_000,
-      'PDF/EPUB generation'
-    )
-    pdfBytes = results[0]
-    epubBytes = results[1]
-  } catch (err) {
-    console.error('[upload-book] PDF/EPUB generation error:', err)
-    return res.status(500).json({ error: 'File generation failed (PDF or EPUB).' })
+  if (directPdfBuffer) {
+    // PDF was uploaded directly — use as-is, EPUB skipped (pdfOnly forced true)
+    pdfBytes = directPdfBuffer
+  } else {
+    try {
+      const results = await withTimeout(
+        Promise.all([
+          generatePdf(title, author, htmlContent),
+          pdfOnly ? Promise.resolve(null) : generateEpub(title, author, htmlContent, metadata.description),
+        ]),
+        30_000,
+        'PDF/EPUB generation'
+      )
+      pdfBytes = results[0]
+      epubBytes = results[1]
+    } catch (err) {
+      console.error('[upload-book] PDF/EPUB generation error:', err)
+      return res.status(500).json({ error: 'File generation failed (PDF or EPUB).' })
+    }
   }
 
   // ── 4b. Auto-compress EPUB if over 20 MB ─────────────────

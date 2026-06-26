@@ -1724,9 +1724,9 @@ export default function Admin() {
       } catch {
         // Vercel returned non-JSON — most likely 413 Request Entity Too Large
         if (r.status === 413) {
-          throw new Error('File too large — DOCX must be under 4 MB. Remove embedded images in Word (Insert → Pictures → delete), then re-save.')
+          throw new Error('File too large — DOCX max 10 MB, PDF max 50 MB.')
         }
-        throw new Error(`Server error (HTTP ${r.status}) — check the file is a valid .docx under 4 MB.`)
+        throw new Error(`Server error (HTTP ${r.status}) — check the file is a valid .docx or .pdf.`)
       }
 
       if (!r.ok) throw new Error(rawData.error ?? `Server error ${r.status}`)
@@ -1848,12 +1848,16 @@ export default function Admin() {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'start' }}>
             <div>
-              <label style={labelStyle}>Manuscript (.docx)</label>
+              <label style={labelStyle}>Manuscript (.docx) or PDF (for image-heavy textbooks)</label>
               <input
                 ref={fileRef}
                 type="file"
-                accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                onChange={e => setFile(e.target.files?.[0] ?? null)}
+                accept=".docx,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
+                onChange={e => {
+                  const f = e.target.files?.[0] ?? null
+                  setFile(f)
+                  if (f?.name.toLowerCase().endsWith('.pdf')) setPdfOnly(true)
+                }}
                 required
                 style={{ fontSize: '0.82rem', fontFamily: 'var(--font-body)' }}
               />
@@ -1991,19 +1995,25 @@ export default function Admin() {
             display: 'flex', alignItems: 'flex-start', gap: '0.6rem', cursor: 'pointer',
             padding: '0.75rem 0.85rem', border: '1px solid var(--border)',
             background: pdfOnly ? 'rgba(196,134,42,0.06)' : 'transparent',
+            opacity: file?.name.toLowerCase().endsWith('.pdf') ? 0.6 : 1,
           }}>
             <input
               type="checkbox"
               checked={pdfOnly}
+              disabled={!!file?.name.toLowerCase().endsWith('.pdf')}
               onChange={e => setPdfOnly(e.target.checked)}
               style={{ marginTop: 2, flexShrink: 0 }}
             />
             <span>
               <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-body)', color: 'var(--ink)' }}>
-                Textbook or image-heavy book — generate PDF only, skip EPUB
+                {file?.name.toLowerCase().endsWith('.pdf')
+                  ? 'PDF upload — EPUB generation skipped automatically'
+                  : 'Textbook or image-heavy book — generate PDF only, skip EPUB'}
               </span>
               <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--mist)', marginTop: '0.2rem' }}>
-                Use this for manuscripts with many embedded images. Prevents oversized or broken EPUBs.
+                {file?.name.toLowerCase().endsWith('.pdf')
+                  ? 'Your PDF will be used directly. No DOCX conversion needed.'
+                  : 'Use this for manuscripts with many embedded images. Prevents oversized or broken EPUBs.'}
               </span>
             </span>
           </label>
