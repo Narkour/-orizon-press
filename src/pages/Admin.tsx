@@ -742,6 +742,177 @@ function CompressEpubSection({ adminKey }: { adminKey: string }) {
   )
 }
 
+// ─── Pending reviews ─────────────────────────────────────────────────────────
+interface ReviewRow {
+  id: string
+  book_slug: string
+  reviewer_name: string
+  reviewer_email: string
+  rating: number
+  body: string
+  verified_purchase: boolean
+  created_at: string
+}
+
+function PendingReviewsSection({ adminKey }: { adminKey: string }) {
+  const [reviews, setReviews] = useState<ReviewRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [working, setWorking] = useState<Record<string, 'approving' | 'deleting'>>({})
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  const load = () => {
+    setLoading(true)
+    fetch('/api/reviews?pending=true', { headers: { Authorization: `Bearer ${adminKey}` } })
+      .then(r => r.json())
+      .then(data => setReviews(Array.isArray(data.reviews) ? data.reviews : []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { load() }, [adminKey]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const approve = async (id: string) => {
+    setWorking(w => ({ ...w, [id]: 'approving' }))
+    try {
+      const r = await fetch('/api/reviews', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+        body: JSON.stringify({ id }),
+      })
+      if (!r.ok) throw new Error()
+      setReviews(prev => prev.filter(rev => rev.id !== id))
+      setMsg({ ok: true, text: 'Review approved and published.' })
+    } catch {
+      setMsg({ ok: false, text: 'Failed to approve review.' })
+    } finally {
+      setWorking(w => { const n = { ...w }; delete n[id]; return n })
+    }
+  }
+
+  const remove = async (id: string) => {
+    setWorking(w => ({ ...w, [id]: 'deleting' }))
+    try {
+      const r = await fetch('/api/reviews', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminKey}` },
+        body: JSON.stringify({ id }),
+      })
+      if (!r.ok) throw new Error()
+      setReviews(prev => prev.filter(rev => rev.id !== id))
+      setMsg({ ok: true, text: 'Review deleted.' })
+    } catch {
+      setMsg({ ok: false, text: 'Failed to delete review.' })
+    } finally {
+      setWorking(w => { const n = { ...w }; delete n[id]; return n })
+    }
+  }
+
+  const eyebrow: React.CSSProperties = {
+    fontSize: '0.62rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--mist)',
+  }
+
+  return (
+    <div style={{ marginTop: '4rem', borderTop: '1px solid var(--border)', paddingTop: '2.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem', marginBottom: '0.4rem' }}>
+        <div style={eyebrow}>Pending Reviews</div>
+        {reviews.length > 0 && (
+          <span style={{
+            fontSize: '0.6rem', background: '#c0392b', color: 'white',
+            borderRadius: 9999, padding: '0.1rem 0.45rem', fontWeight: 600,
+          }}>
+            {reviews.length}
+          </span>
+        )}
+        <button
+          onClick={load}
+          style={{ fontSize: '0.65rem', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--mist)', padding: 0, fontFamily: 'var(--font-body)', textDecoration: 'underline', marginLeft: 'auto' }}
+        >
+          Refresh
+        </button>
+      </div>
+      <p style={{ color: 'var(--mist)', fontSize: '0.82rem', marginBottom: '1.25rem' }}>
+        New reviews require approval before appearing on book pages.
+      </p>
+
+      {msg && (
+        <div style={{
+          padding: '0.5rem 0.75rem', fontSize: '0.78rem', marginBottom: '0.85rem',
+          background: msg.ok ? 'rgba(46,125,50,0.07)' : 'rgba(192,57,43,0.07)',
+          border: `1px solid ${msg.ok ? 'rgba(46,125,50,0.3)' : 'rgba(192,57,43,0.3)'}`,
+          color: msg.ok ? '#2e7d32' : '#c0392b',
+        }}>{msg.text}</div>
+      )}
+
+      {loading ? (
+        <p style={{ color: 'var(--mist)', fontSize: '0.82rem' }}>Loading…</p>
+      ) : reviews.length === 0 ? (
+        <div style={{ padding: '0.85rem 1rem', background: 'rgba(0,0,0,0.02)', border: '1px solid var(--border)', fontSize: '0.82rem', color: 'var(--mist)' }}>
+          No pending reviews — all clear.
+        </div>
+      ) : (
+        <div style={{ border: '1px solid var(--border)' }}>
+          {reviews.map((rev, i) => (
+            <div key={rev.id} style={{
+              padding: '0.85rem 1rem',
+              borderTop: i === 0 ? 'none' : '1px solid var(--border)',
+              background: 'var(--parchment)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                <div>
+                  <span style={{ fontSize: '0.82rem', fontFamily: 'var(--font-display)', color: 'var(--ink)' }}>
+                    {rev.reviewer_name}
+                  </span>
+                  <span style={{ fontSize: '0.62rem', color: 'var(--mist)', marginLeft: '0.75rem' }}>
+                    {rev.reviewer_email}
+                  </span>
+                  {rev.verified_purchase && (
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.55rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#2e7d32', fontWeight: 600 }}>
+                      ✓ Verified
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                  <button
+                    className="btn btn--primary"
+                    style={{ fontSize: '0.65rem', padding: '0.3rem 0.75rem' }}
+                    disabled={!!working[rev.id]}
+                    onClick={() => approve(rev.id)}
+                  >
+                    {working[rev.id] === 'approving' ? 'Approving…' : 'Approve'}
+                  </button>
+                  <button
+                    style={{
+                      fontSize: '0.65rem', padding: '0.3rem 0.75rem',
+                      background: 'none', border: '1px solid rgba(192,57,43,0.4)',
+                      color: '#c0392b', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                    }}
+                    disabled={!!working[rev.id]}
+                    onClick={() => remove(rev.id)}
+                  >
+                    {working[rev.id] === 'deleting' ? 'Deleting…' : 'Delete'}
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--gold)', letterSpacing: '0.05em' }}>
+                  {'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}
+                </span>
+                <span style={{ fontSize: '0.62rem', color: 'var(--mist)' }}>
+                  on <span style={{ color: 'var(--ink)', fontFamily: 'var(--font-display)' }}>{rev.book_slug}</span>
+                  {' · '}{new Date(rev.created_at).toLocaleDateString()}
+                </span>
+              </div>
+              <p style={{ fontSize: '0.82rem', lineHeight: 1.65, color: 'var(--ink)', margin: 0 }}>
+                {rev.body}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Sales tracker ────────────────────────────────────────────────────────────
 interface OrderRow {
   paypal_order_id: string
@@ -2109,6 +2280,9 @@ export default function Admin() {
 
       {/* ── Book list — always visible ── */}
       {authed && <BookList adminKey={adminKey!} refreshKey={bookListKey} />}
+
+      {/* ── Pending reviews ── */}
+      <PendingReviewsSection adminKey={adminKey!} />
 
       {/* ── Featured book ── */}
       <FeaturedBookSection adminKey={adminKey!} />
