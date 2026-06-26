@@ -2,6 +2,10 @@
   "functions": {
     "api/**/*.ts": {
       "maxDuration": 60
+    },
+    "api/admin/upload-book.ts": {
+      "maxDuration": 300,
+      "memory": 3008
     }
   },
   "headers": [
@@ -27,6 +31,7 @@
     { "source": "/rss.xml",              "destination": "/api/books?format=rss" },
     { "source": "/opds/catalogue",        "destination": "/api/opds/catalogue" },
     { "source": "/opds",                  "destination": "/api/opds" },
+    { "source": "/books/:slug",           "destination": "/api/books?format=book-meta&slug=:slug" },
     { "source": "/(.*)",                  "destination": "/index.html" }
   ]
 }

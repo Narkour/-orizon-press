@@ -252,7 +252,12 @@ Generate the following metadata as JSON (no markdown, just the JSON object):
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 export const maxDuration = 300
-export const config = { api: { bodyParser: false } }
+export const config = {
+  api: {
+    bodyParser: false,
+    responseLimit: '50mb',
+  },
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).end()
