@@ -31,7 +31,6 @@
     { "source": "/rss.xml",              "destination": "/api/books?format=rss" },
     { "source": "/opds/catalogue",        "destination": "/api/opds/catalogue" },
     { "source": "/opds",                  "destination": "/api/opds" },
-    { "source": "/books/:slug",           "destination": "/api/books?format=book-meta&slug=:slug" },
     { "source": "/(.*)",                  "destination": "/index.html" }
   ]
 }
