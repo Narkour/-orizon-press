@@ -52,11 +52,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     ])
     const urls: string[] = []
     for (const p of STATIC_PAGES) {
-      urls.push(`\n  <url><loc>${BASE_URL}${p.loc}</loc><lastmod>${today}</lastmod><changefreq>${p.changefreq}</changefreq><priority>${p.priority}</priority></url>`)
+      urls.push(`\n  <url><loc>${BASE_URL}${p.loc}</loc><changefreq>${p.changefreq}</changefreq><priority>${p.priority}</priority></url>`)
     }
     for (const b of booksRes.data ?? []) {
       const lastmod = (b.updated_at ?? b.created_at ?? '').slice(0, 10)
-      urls.push(`\n  <url><loc>${BASE_URL}/books/${b.slug}</loc><lastmod>${lastmod}</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>`)
+      urls.push(`\n  <url><loc>${BASE_URL}/books/${b.slug}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}<changefreq>monthly</changefreq><priority>0.8</priority></url>`)
     }
     for (const p of pensRes.data ?? []) {
       urls.push(`\n  <url><loc>${BASE_URL}/authors/${p.slug}</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>`)
