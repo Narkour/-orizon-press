@@ -823,6 +823,7 @@ export default function BookDetail() {
   return (
     <div style={{ padding: '2rem 0 5rem' }}>
       <Helmet>
+        <link rel="canonical" href={`https://orizonpress.com/books/${encodeURIComponent(book.slug)}`} />
         <title>{book.title} | Orizon Press</title>
         <meta name="description" content={book.description} />
         <meta property="og:title" content={`${book.title} | Orizon Press`} />
