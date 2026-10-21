@@ -22,6 +22,7 @@ export default function AuthorDetail() {
   return (
     <div style={{ paddingBottom:'5rem' }}>
       <Helmet>
+        <link rel="canonical" href={`https://orizonpress.com/authors/${encodeURIComponent(author.slug)}`} />
         <title>{author.name} | Orizon Press</title>
         <meta name="description" content={author.shortBio} />
         <meta property="og:title" content={`${author.name} | Orizon Press`} />
