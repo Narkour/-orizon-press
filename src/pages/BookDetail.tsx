@@ -823,6 +823,19 @@ export default function BookDetail() {
   return (
     <div style={{ padding: '2rem 0 5rem' }}>
       <Helmet>
+        <link rel="canonical" href={`https://orizonpress.com/books/${encodeURIComponent(book.slug)}`} />
+        <script type="application/ld+json">{JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'Book',
+          name: book.title,
+          description: book.description,
+          url: `https://orizonpress.com/books/${encodeURIComponent(book.slug)}`,
+          ...(book.coverImage ? { image: book.coverImage } : {}),
+          ...(book.author || author?.name ? { author: { '@type': 'Person', name: book.author || author?.name } } : {}),
+          inLanguage: book.language || 'en',
+          genre: book.genre,
+          publisher: { '@type': 'Organization', name: 'Orizon Press', url: 'https://orizonpress.com/' },
+        }).replace(/</g, '\\u003c')}</script>
         <title>{book.title} | Orizon Press</title>
         <meta name="description" content={book.description} />
         <meta property="og:title" content={`${book.title} | Orizon Press`} />

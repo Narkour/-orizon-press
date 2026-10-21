@@ -15,6 +15,7 @@ export default function BlogPost() {
   return (
     <div style={{ padding: '2.5rem 0 6rem' }}>
       <Helmet>
+        <link rel="canonical" href={`https://orizonpress.com/blog/${encodeURIComponent(post.slug)}`} />
         <title>{post.title} | Orizon Press</title>
         <meta name="description" content={post.excerpt} />
         <meta property="og:title" content={`${post.title} | Orizon Press`} />

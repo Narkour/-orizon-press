@@ -46,21 +46,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Sitemap: GET /api/books?format=sitemap  (served at /sitemap.xml via rewrite)
   if (req.query.format === 'sitemap') {
-    const today = new Date().toISOString().slice(0, 10)
     const [booksRes, pensRes] = await Promise.all([
       supabase.from('books').select('slug, updated_at, created_at').eq('available', true).order('created_at', { ascending: false }),
       supabase.from('pen_names').select('slug'),
     ])
     const urls: string[] = []
     for (const p of STATIC_PAGES) {
-      urls.push(`\n  <url><loc>${BASE_URL}${p.loc}</loc><lastmod>${today}</lastmod><changefreq>${p.changefreq}</changefreq><priority>${p.priority}</priority></url>`)
+      urls.push(`\n  <url><loc>${BASE_URL}${p.loc}</loc><changefreq>${p.changefreq}</changefreq><priority>${p.priority}</priority></url>`)
     }
     for (const b of booksRes.data ?? []) {
-      const lastmod = (b.updated_at ?? b.created_at ?? today).slice(0, 10)
-      urls.push(`\n  <url><loc>${BASE_URL}/books/${b.slug}</loc><lastmod>${lastmod}</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>`)
+      const lastmod = (b.updated_at ?? b.created_at ?? '').slice(0, 10)
+      urls.push(`\n  <url><loc>${BASE_URL}/books/${b.slug}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}<changefreq>monthly</changefreq><priority>0.8</priority></url>`)
     }
     for (const p of pensRes.data ?? []) {
-      urls.push(`\n  <url><loc>${BASE_URL}/authors/${p.slug}</loc><lastmod>${today}</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>`)
+      urls.push(`\n  <url><loc>${BASE_URL}/authors/${p.slug}</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>`)
     }
     res.setHeader('Content-Type', 'application/xml; charset=utf-8')
     res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400')

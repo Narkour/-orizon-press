@@ -127,6 +127,7 @@ export default function Home() {
       </div>
       <div style={{ overflowX: 'hidden' }}>
       <Helmet>
+        <link rel="canonical" href="https://orizonpress.com/" />
         <title>Orizon Press | African Stories, History &amp; Spirituality</title>
         <meta name="description" content="Independent publisher of African history, consciousness, spirituality and fiction. Buy direct from Orizon Press." />
         <meta property="og:title" content="Orizon Press | African Stories, History & Spirituality" />
