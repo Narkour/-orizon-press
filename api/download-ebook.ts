@@ -1,3 +1,4 @@
+import { isEbookPaused, EBOOK_PAUSED_MESSAGE } from '../src/lib/distribution.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { rateLimit } from './_lib/rate-limit.js'
@@ -35,6 +36,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (lookupError || !order) {
     return res.status(403).json({ error: 'Invalid download token' })
+  }
+
+  if (isEbookPaused(order.book_slug)) {
+    return res.status(409).json({ error: EBOOK_PAUSED_MESSAGE })
   }
 
   if (new Date(order.token_expires_at) < new Date()) {

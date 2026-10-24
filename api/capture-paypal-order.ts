@@ -1,3 +1,4 @@
+import { isEbookPaused, EBOOK_PAUSED_MESSAGE } from '../src/lib/distribution.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { Client, Environment, OrdersController } from '@paypal/paypal-server-sdk'
 import { rateLimit } from './_lib/rate-limit.js'
@@ -38,7 +39,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: 'Missing required fields' })
   }
 
+  if (orderType !== 'audiobook' && isEbookPaused(bookSlug)) {
+    return res.status(409).json({ error: EBOOK_PAUSED_MESSAGE })
+  }
+
   try {
+    // Use PayPal's stored order identity as well as the submitted slug, so an
+    // order opened before the pause cannot be captured under another title.
+    const { result: pendingOrder } = await ordersController.getOrder({ id: orderId })
+    for (const unit of pendingOrder.purchaseUnits ?? []) {
+      const [storedSlug, , storedType] = (unit.customId ?? '').split('|')
+      if (storedType !== 'audiobook' && isEbookPaused(storedSlug)) {
+        return res.status(409).json({ error: EBOOK_PAUSED_MESSAGE })
+      }
+    }
     const { result: capture } = await ordersController.captureOrder({
       id: orderId,
       prefer: 'return=representation',

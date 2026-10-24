@@ -1,3 +1,4 @@
+import { isEbookPaused } from '../../src/lib/distribution.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { getPenNameById } from '../../src/data/catalogue.js'
@@ -55,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       : null
     const coverType = coverUrl ? imgMime(coverUrl) : null
     const bookUrl = `${SITE}/books/${book.slug}`
-    const ebookAvailable = !!book.pdf_path
+    const ebookAvailable = !!book.pdf_path && !isEbookPaused(book.slug)
 
     const coverLinks = coverUrl
       ? `    <link rel="http://opds-spec.org/image"

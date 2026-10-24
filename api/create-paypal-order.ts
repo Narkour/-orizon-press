@@ -1,3 +1,4 @@
+import { isEbookPaused, EBOOK_PAUSED_MESSAGE } from '../src/lib/distribution.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { Client, Environment, OrdersController, CheckoutPaymentIntent } from '@paypal/paypal-server-sdk'
 import { rateLimit } from './_lib/rate-limit.js'
@@ -29,6 +30,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (!bookSlug || !bookTitle || !amount || !buyerEmail) {
     return res.status(400).json({ error: 'Missing required fields' })
+  }
+
+  if (orderType !== 'audiobook' && isEbookPaused(bookSlug)) {
+    return res.status(409).json({ error: EBOOK_PAUSED_MESSAGE })
   }
 
   const parsedAmount = parseFloat(amount)

@@ -1,3 +1,4 @@
+import { isEbookPaused } from '../src/lib/distribution.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { rateLimit } from './_lib/rate-limit.js'
@@ -144,7 +145,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     featuredSlug = bookList[dayIndex % bookList.length].slug
   }
 
-  const books = bookList.map(b => ({ ...b, featured: b.slug === featuredSlug }))
+  const books = bookList.map(b => ({ ...b, ...(isEbookPaused(b.slug) ? { pdf_path: null, epub_path: null } : {}), featured: b.slug === featuredSlug }))
   res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=300')
   return res.status(200).json(books)
 }

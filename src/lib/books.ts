@@ -1,3 +1,4 @@
+import { isEbookPaused } from './distribution'
 import type { Book, AudioChapter } from '../data/catalogue'
 
 export interface DbBook {
@@ -37,7 +38,7 @@ export function mapBook(row: DbBook): Book {
     coverImage: row.cover_url || undefined,
     featured: row.featured ?? false,
     ebook: {
-      available: row.available && !!row.pdf_path,
+      available: row.available && !!row.pdf_path && !isEbookPaused(row.slug),
       price: Number(row.price),
     },
     print: { available: true, price: 16.99 },

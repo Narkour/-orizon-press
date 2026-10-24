@@ -1,3 +1,4 @@
+import { isEbookPaused, EBOOK_PAUSED_MESSAGE } from '../src/lib/distribution.js'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { createClient } from '@supabase/supabase-js'
 import { randomUUID } from 'crypto'
@@ -69,6 +70,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { bookSlug } = req.body ?? {}
     if (!bookSlug || typeof bookSlug !== 'string') {
       return res.status(400).json({ error: 'Missing bookSlug' })
+    }
+
+    if (isEbookPaused(bookSlug)) {
+      return res.status(409).json({ error: EBOOK_PAUSED_MESSAGE })
     }
 
     const { data: order, error: lookupError } = await supabase

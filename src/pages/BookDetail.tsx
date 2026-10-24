@@ -1,3 +1,4 @@
+import { isEbookPaused, KINDLE_URL } from '../lib/distribution'
 import { useState, useEffect } from 'react'
 import { useParams, Link, Navigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
@@ -880,6 +881,12 @@ export default function BookDetail() {
               <div style={{ fontSize: '0.62rem', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--mist)', marginBottom: '1.25rem' }}>
                 Get This Book
               </div>
+              {isEbookPaused(book.slug) && (
+                <div style={{ padding: '0.8rem 0', borderTop: '1px solid var(--border)' }}>
+                  <p style={{ fontSize: '0.8rem', marginBottom: '0.7rem' }}>The eBook is available exclusively on Amazon Kindle.</p>
+                  <a className="btn btn--primary" href={KINDLE_URL} target="_blank" rel="noopener noreferrer">View Kindle edition</a>
+                </div>
+              )}
               {book.ebook.available && (
                 <div style={{ padding: '0.8rem 0', borderTop: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: book.sampleText ? '0.6rem' : 0 }}>
@@ -919,7 +926,7 @@ export default function BookDetail() {
                   <a
                     className="btn btn--outline"
                     style={{ fontSize: '0.68rem', textDecoration: 'none' }}
-                    href={`https://www.amazon.com/s?k=${encodeURIComponent(book.title)}`}
+                    href={isEbookPaused(book.slug) ? 'https://www.amazon.com/s?i=stripbooks&k=Children+of+the+Stars+Jojo+Penwood' : `https://www.amazon.com/s?k=${encodeURIComponent(book.title)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >Buy Print</a>
